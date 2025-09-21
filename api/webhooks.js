@@ -3,23 +3,22 @@ const axios = require('axios');
 
 const GHL_API_KEY = process.env.GHL_API_KEY;
 const GHL_API_BASE = 'https://services.leadconnectorhq.com/contacts'; // URL API GHL
-const GHL_SUPABASE_ID_FIELD = process.env.GHL_SUPABASE_ID_FIELD;
 
 async function updateGHLContact(contact_id, supabase_user_id) {
-  if (!GHL_API_KEY || !GHL_SUPABASE_ID_FIELD) {
-    console.error("❌ Clé API GHL ou ID de champ personnalisé manquant.");
+  if (!GHL_API_KEY) {
+    console.error("❌ Clé API GHL manquante.");
     return;
   }
   try {
     const payload = {
       customFields: [
         {
-          id: GHL_SUPABASE_ID_FIELD,
+          key: "supabase_user_id", // Utilisation de la clé unique (nom du champ)
           value: supabase_user_id
         }
       ]
     };
-    await axios.put(
+    const response = await axios.put(
       `${GHL_API_BASE}/${contact_id}`,
       payload,
       {
@@ -30,7 +29,7 @@ async function updateGHLContact(contact_id, supabase_user_id) {
         }
       }
     );
-    console.log('✅ GHL contact mis à jour:', contact_id);
+    console.log('✅ GHL contact mis à jour:', response.data);
   } catch (error) {
     console.error('❌ Erreur mise à jour contact GHL:', error.response?.data || error.message);
   }
@@ -66,7 +65,7 @@ module.exports = async function handler(req, res) {
 
     let supabaseUser;
     if (!users || users.length === 0) {
-      // Création utilisateur supabase
+      // Création utilisateur Supabase
       const { data: { user: newUser }, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: userEmail,
         email_confirm: true,
