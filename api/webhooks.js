@@ -1,3 +1,7 @@
+console.log("Env Variables check:");
+console.log("SUPABASE_URL:", process.env.SUPABASE_URL ? "OK" : "MISSING");
+console.log("SUPABASE_SERVICE_KEY:", process.env.SUPABASE_SERVICE_KEY ? "OK" : "MISSING");
+console.log("GHL_API_KEY:", process.env.GHL_API_KEY ? "OK" : "MISSING");
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 
