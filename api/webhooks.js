@@ -1,104 +1,94 @@
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 
+// --- VARIABLES D'ENVIRONNEMENT (à configurer sur Vercel) ---
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const GHL_API_KEY = process.env.GHL_API_KEY;
-const GHL_API_BASE = 'https://services.leadconnectorhq.com/contacts';
+const GHL_SUPABASE_ID_FIELD = process.env.GHL_SUPABASE_ID_FIELD; // L'ID unique de votre champ personnalisé
 
-async function updateGHLContact(contact_id, supabase_user_id) {
-  if (!GHL_API_KEY) {
-    console.error("[GHL_UPDATE] ❌ Clé API GHL manquante.");
+// --- FONCTION POUR METTRE À JOUR GHL (Version Finale) ---
+async function updateGHLContact(requestId, contact_id, supabase_user_id) {
+  if (!GHL_API_KEY || !GHL_SUPABASE_ID_FIELD) {
+    console.error(`[${requestId}] [GHL_UPDATE] ❌ Variables d'environnement GHL manquantes.`);
     return;
   }
   try {
     const payload = {
-      customFields: [
-        { key: "supabase_user_id", value: supabase_user_id }
-      ]
+      customFields: [{ "id": GHL_SUPABASE_ID_FIELD, "value": supabase_user_id }]
     };
-    const response = await axios.put(`${GHL_API_BASE}/${contact_id}`, payload, {
+    await axios.put(`https://services.leadconnectorhq.com/contacts/${contact_id}`, payload, {
       headers: {
         Authorization: `Bearer ${GHL_API_KEY}`,
         'Content-Type': 'application/json',
-        Version: '2021-07-28'
+        'Version': '2021-07-28'
       }
     });
-    console.log(`[GHL_UPDATE] ✅ GHL contact mis à jour : ${contact_id}`, response.data);
+    console.log(`[${requestId}] [GHL_UPDATE] ✅ GHL contact mis à jour : ${contact_id}`);
   } catch (error) {
-    console.error(`[GHL_UPDATE] ❌ Erreur mise à jour contact GHL (${contact_id}):`, error.response?.data || error.message);
+    console.error(`[${requestId}] [GHL_UPDATE] ❌ Erreur mise à jour contact GHL (${contact_id}):`, error.response?.data || error.message);
   }
 }
 
+// --- HANDLER PRINCIPAL POUR VERCEL (Version Finale) ---
 module.exports = async function handler(req, res) {
+  const requestId = Math.random().toString(36).substring(2, 8);
+
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // Génération d’un ID unique simple pour chaque requête
-  const requestId = Math.random().toString(36).substring(2, 8);
+  console.log(`[${requestId}] 🎉 Webhook GHL reçu !`);
 
   try {
     const ghlContact = req.body;
-    console.log(`[${requestId}] 🎉 Webhook GHL reçu :`, JSON.stringify(ghlContact));
-
     const userEmail = ghlContact.email;
     const ghlContactId = ghlContact.contact_id || ghlContact.id;
 
-    if (!userEmail) {
-      console.warn(`[${requestId}] ⚠️ Email manquant dans le webhook, traitement ignoré.`);
-      return res.status(200).send(`[${requestId}] Email manquant, traitement ignoré.`);
+    if (!userEmail || !ghlContactId) {
+      return res.status(200).send(`[${requestId}] Email ou ID de contact manquant, traitement ignoré.`);
     }
+    
+    console.log(`[${requestId}] Traitement pour le contact : ${userEmail} (ID: ${ghlContactId})`);
 
-    if (!GHL_API_KEY) {
-      console.error(`[${requestId}] ❌ Clé API GHL manquante en variable d'environnement.`);
-      return res.status(500).send(`[${requestId}] Clé API GHL manquante.`);
-    }
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    const supabaseAdmin = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
+    // Puisque GHL bloque les doublons, nous procédons directement à la création.
+    // Supabase renverra une erreur si l'email existe déjà, ce qui est une sécurité supplémentaire.
+    console.log(`[${requestId}] [SUPABASE] Tentative de création d'utilisateur pour : ${userEmail}`);
+    
+    const { data: { user: newUser }, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: userEmail,
+      email_confirm: true, // L'utilisateur est confirmé automatiquement
+      app_metadata: {
+        gohighlevel_contact_id: ghlContactId,
+        gohighlevel_location_id: ghlContact.location?.id,
+        full_name: ghlContact.fullName || ghlContact.full_name || '',
+      },
+    });
 
-    console.log(`[${requestId}] Recherche utilisateur Supabase avec email : ${userEmail}`);
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ email: userEmail });
-    if (listError) {
-      console.error(`[${requestId}] ❌ Erreur lors de la recherche utilisateur Supabase :`, listError);
-      throw listError;
-    }
-
-    console.log(`[${requestId}] Nombre d’utilisateurs trouvés : ${users.length}`);
-
-    let supabaseUser;
-    if (!users || users.length === 0) {
-      console.log(`[${requestId}] Utilisateur non trouvé, création d’un nouvel utilisateur pour ${userEmail}`);
-      const { data: { user: newUser }, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: userEmail,
-        email_confirm: true,
-        password: Math.random().toString(36).slice(-8),
-        app_metadata: {
-          gohighlevel_contact_id: ghlContactId,
-          full_name: ghlContact.fullName || ghlContact.full_name || '',
-        }
-      });
-      if (createError) {
-        console.error(`[${requestId}] ❌ Erreur création utilisateur Supabase :`, createError);
-        throw createError;
+    if (createError) {
+      // Si Supabase renvoie une erreur (ex: l'utilisateur existe déjà par sécurité), on la logue
+      console.error(`[${requestId}] [SUPABASE] ❌ Erreur création utilisateur Supabase :`, createError.message);
+      // On peut quand même tenter de mettre à jour GHL si l'utilisateur existe déjà
+      if (createError.message.includes("already exists")) {
+          console.log(`[${requestId}] [SUPABASE] 👍 L'utilisateur existe déjà, on continue...`);
+          // On ne fait rien de plus ici, mais on pourrait récupérer l'ID existant si besoin
+      } else {
+          throw createError; // Si c'est une autre erreur, on arrête
       }
-      supabaseUser = newUser;
-      console.log(`[${requestId}] ✅ Nouvel utilisateur créé : ${supabaseUser.email} (id: ${supabaseUser.id})`);
-    } else {
-      supabaseUser = users[0];
-      console.log(`[${requestId}] 👍 Utilisateur existant trouvé : ${supabaseUser.email} (id: ${supabaseUser.id})`);
     }
 
-    if (ghlContactId && supabaseUser && supabaseUser.id) {
-      await updateGHLContact(ghlContactId, supabaseUser.id);
-    } else {
-      console.warn(`[${requestId}] ⚠️ Pas de contact_id GHL ou utilisateur Supabase valide pour mise à jour.`);
+    if (newUser) {
+      console.log(`[${requestId}] [SUPABASE] ✅ Nouvel utilisateur créé : ${newUser.email} (id: ${newUser.id})`);
+      // On met à jour GHL uniquement si un nouvel utilisateur a été créé
+      await updateGHLContact(requestId, ghlContactId, newUser.id);
     }
 
     return res.status(200).send(`[${requestId}] Webhook traité avec succès.`);
-  } catch (error) {
-    console.error(`[${requestId}] ❌ Erreur dans le webhook :`, error.message || error);
-    return res.status(500).send(`[${requestId}] Erreur serveur`);
+
+  } catch (err) {
+    console.error(`[${requestId}] ❌ Erreur fatale dans le webhook : `, err.message);
+    return res.status(500).send("Erreur serveur");
   }
 };
