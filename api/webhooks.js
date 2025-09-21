@@ -56,7 +56,9 @@ module.exports = async function handler(req, res) {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ email: userEmail });
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+      email: userEmail
+    });
     if (listError) throw listError;
 
     let supabaseUser;
