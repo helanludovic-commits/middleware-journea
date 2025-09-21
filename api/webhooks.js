@@ -51,32 +51,30 @@ module.exports = async function handler(req, res) {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // MÉTHODE DE RECHERCHE CORRIGÉE ET SIMPLIFIÉE
-    const { data: existingUser, error: findError } = await supabaseAdmin.auth.admin.getUserByEmail(userEmail);
+    // REPRISE DE LA BONNE MÉTHODE "listUsers"
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+      email: userEmail
+    });
 
+    if (listError) throw listError;
+    
     let supabaseUser;
 
-    if (findError) {
-      // Si l'erreur est "User not found", c'est normal, on peut continuer
-      if (findError.message === 'User not found') {
-        // L'utilisateur n'existe pas, on le crée
-        const { data: { user: newUser }, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email: userEmail,
-          email_confirm: true,
-          app_metadata: {
-            gohighlevel_contact_id: ghlContactId,
-          },
-        });
-        if (createError) throw createError;
-        supabaseUser = newUser;
-        console.log(`✅ Nouvel utilisateur créé : ${supabaseUser.email} (id: ${supabaseUser.id})`);
-      } else {
-        // Si c'est une autre erreur, on arrête
-        throw findError;
-      }
+    if (users && users.length === 0) {
+      // Si l'utilisateur n'existe pas, on le crée
+      const { data: { user: newUser }, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: userEmail,
+        email_confirm: true,
+        app_metadata: {
+          gohighlevel_contact_id: ghlContactId,
+        },
+      });
+      if (createError) throw createError;
+      supabaseUser = newUser;
+      console.log(`✅ Nouvel utilisateur créé : ${supabaseUser.email} (id: ${supabaseUser.id})`);
     } else {
-      // Si on ne trouve pas d'erreur, l'utilisateur existe déjà
-      supabaseUser = existingUser.user;
+      // Si l'utilisateur existe déjà, on récupère ses informations
+      supabaseUser = users[0];
       console.log(`👍 Utilisateur existant : ${supabaseUser.email} (id: ${supabaseUser.id})`);
     }
 
