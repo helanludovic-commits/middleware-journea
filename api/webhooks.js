@@ -1,92 +1,100 @@
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 
-// --- FONCTION POUR METTRE À JOUR GHL ---
 const GHL_API_KEY = process.env.GHL_API_KEY;
 const GHL_API_BASE = 'https://services.leadconnectorhq.com/contacts';
-const GHL_SUPABASE_ID_FIELD = process.env.GHL_SUPABASE_ID_FIELD;
 
 async function updateGHLContact(contact_id, supabase_user_id) {
-  if (!GHL_API_KEY || !GHL_SUPABASE_ID_FIELD) {
-    console.error("Variables d'environnement GHL manquantes.");
+  if (!GHL_API_KEY) {
+    console.error("❌ Clé API GHL manquante.");
     return;
   }
   try {
     const payload = {
-      customFields: [{ "id": GHL_SUPABASE_ID_FIELD, "value": supabase_user_id }]
+      customFields: [
+        {
+          key: "supabase_user_id",
+          value: supabase_user_id
+        }
+      ]
     };
-    await axios.put(`${GHL_API_BASE}/${contact_id}`, payload, {
-      headers: {
-        Authorization: `Bearer ${GHL_API_KEY}`,
-        'Content-Type': 'application/json',
-        'Version': '2021-07-28'
+    const response = await axios.put(
+      `${GHL_API_BASE}/${contact_id}`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${GHL_API_KEY}`,
+          'Content-Type': 'application/json',
+          Version: '2021-07-28'
+        }
       }
-    });
-    console.log(`✅ GHL contact mis à jour : ${contact_id}`);
+    );
+    console.log('✅ GHL contact mis à jour:', response.data);
   } catch (error) {
-    console.error(`❌ Erreur mise à jour contact GHL (${contact_id}):`, error.response?.data || error.message);
+    console.error('❌ Erreur mise à jour contact GHL:', error.response?.data || error.message);
   }
 }
 
-// --- HANDLER PRINCIPAL POUR VERCEL ---
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
-
-  console.log("🎉 Webhook GHL reçu !");
-
   try {
     const ghlContact = req.body;
+    console.log("🎉 Webhook GHL reçu :", JSON.stringify(ghlContact));
+
     const userEmail = ghlContact.email;
     const ghlContactId = ghlContact.contact_id || ghlContact.id;
 
     if (!userEmail) {
+      console.warn("⚠️ Email manquant dans le webhook, traitement ignoré.");
       return res.status(200).send("Email manquant, traitement ignoré.");
     }
-    
-    // Initialisation du client Supabase
+
     const supabaseAdmin = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // REPRISE DE LA BONNE MÉTHODE "listUsers"
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-      email: userEmail
-    });
+    // Liste des utilisateurs existants avec cet email
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ email: userEmail });
+    if (listError) {
+      console.error("❌ Erreur lors de la recherche utilisateur Supabase :", listError);
+      throw listError;
+    }
 
-    if (listError) throw listError;
-    
     let supabaseUser;
-
-    if (users && users.length === 0) {
-      // Si l'utilisateur n'existe pas, on le crée
+    if (!users || users.length === 0) {
+      console.log("👉 Aucun utilisateur Supabase trouvé, création d'un nouvel utilisateur avec email:", userEmail);
       const { data: { user: newUser }, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: userEmail,
         email_confirm: true,
+        password: Math.random().toString(36).slice(-8),
         app_metadata: {
           gohighlevel_contact_id: ghlContactId,
-        },
+          full_name: ghlContact.fullName || ghlContact.full_name || '',
+        }
       });
-      if (createError) throw createError;
+      if (createError) {
+        console.error("❌ Erreur création utilisateur Supabase :", createError);
+        throw createError;
+      }
       supabaseUser = newUser;
-      console.log(`✅ Nouvel utilisateur créé : ${supabaseUser.email} (id: ${supabaseUser.id})`);
+      console.log(`✅ Nouvel utilisateur Supabase créé : ${supabaseUser.email} (id: ${supabaseUser.id})`);
     } else {
-      // Si l'utilisateur existe déjà, on récupère ses informations
       supabaseUser = users[0];
-      console.log(`👍 Utilisateur existant : ${supabaseUser.email} (id: ${supabaseUser.id})`);
+      console.log(`👍 Utilisateur Supabase existant trouvé : ${supabaseUser.email} (id: ${supabaseUser.id})`);
     }
 
-    // Mise à jour GHL
     if (ghlContactId && supabaseUser && supabaseUser.id) {
       await updateGHLContact(ghlContactId, supabaseUser.id);
+    } else {
+      console.warn("⚠️ Pas de contact_id GHL ou utilisateur Supabase valide pour mise à jour.");
     }
 
-    return res.status(200).send("Webhook traité avec succès.");
-
-  } catch (err) {
-    console.error("❌ Erreur dans le webhook : ", err.message);
-    return res.status(500).send("Erreur serveur");
+    res.status(200).send("Webhook traité avec succès.");
+  } catch (error) {
+    console.error("❌ Erreur dans le webhook :", error.message || error);
+    res.status(500).send("Erreur serveur");
   }
 };
