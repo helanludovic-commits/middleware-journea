@@ -1,4 +1,4 @@
-export default function handler(req, res) {
+module.exports = function handler(req, res) {
   if (req.method === 'POST') {
     console.log("🎉 Webhook de GoHighLevel reçu !");
     const webhookData = req.body;
@@ -7,4 +7,4 @@ export default function handler(req, res) {
   } else {
     res.status(405).send('Method Not Allowed');
   }
-}
+};
