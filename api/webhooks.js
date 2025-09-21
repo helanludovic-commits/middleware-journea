@@ -13,16 +13,13 @@ async function updateGHLContact(contact_id, supabase_user_id) {
     const response = await axios.patch(
       `${GHL_API_BASE}/contacts/${contact_id}`,
       {
-        customField: [
-          {
-            name: 'supabase_user_id',
-            value: supabase_user_id
-          }
-        ]
+        customField: {
+          supabase_user_id: supabase_user_id
+        }
       },
       {
         headers: {
-          'Authorization': `Bearer ${GHL_API_KEY}`,
+          Authorization: `Bearer ${GHL_API_KEY}`,
           'Content-Type': 'application/json'
         }
       }
@@ -40,6 +37,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const data = req.body;
+
     console.log("🎉 Webhook de GoHighLevel reçu !");
     console.log("Données reçues :", data);
 
@@ -51,12 +49,12 @@ module.exports = async function handler(req, res) {
     // Vérifie si l'utilisateur existe déjà dans Supabase Auth
     const { data: users, error: listError } = await supabase.auth.admin.listUsers({
       email: email,
-      limit: 1,
+      limit: 1
     });
 
     if (listError) {
-      console.error("Erreur liste utilisateurs :", listError.message);
-      return res.status(500).send('Erreur lors de la récupération utilisateur');
+      console.error("Erreur récupération utilisateurs:", listError.message);
+      return res.status(500).send("Erreur lors de la récupération utilisateur");
     }
 
     let user;
@@ -72,9 +70,10 @@ module.exports = async function handler(req, res) {
           last_name: data.last_name || ''
         }
       });
+
       if (createError) {
         console.error("Erreur création utilisateur :", createError.message);
-        return res.status(500).send('Erreur lors de la création utilisateur');
+        return res.status(500).send("Erreur lors de la création utilisateur");
       }
       user = createdUser;
       console.log(`Nouvel utilisateur créé : ${user.email} (id: ${user.id})`);
@@ -82,26 +81,29 @@ module.exports = async function handler(req, res) {
       // Met à jour l'utilisateur existant
       user = users[0];
       console.log(`Utilisateur existant trouvé : ${user.email} (id: ${user.id})`);
-      await supabase.auth.admin.updateUserById(user.id, {
-        user_metadata: {
-          full_name: data.full_name || '',
-          first_name: data.first_name || '',
-          last_name: data.last_name || ''
-        }
-      });
+
+      if (user && user.id) {
+        await supabase.auth.admin.updateUserById(user.id, {
+          user_metadata: {
+            full_name: data.full_name || '',
+            first_name: data.first_name || '',
+            last_name: data.last_name || ''
+          }
+        });
+      }
     }
 
-    // Met à jour la fiche contact GHL avec l'ID utilisateur Supabase
-    if (data.contact_id) {
+    // Met à jour la fiche contact GHL avec l'id de l'utilisateur Supabase
+    if (data.contact_id && user && user.id) {
       await updateGHLContact(data.contact_id, user.id);
     } else {
-      console.warn('Pas de contact_id fourni dans le webhook GHL.');
+      console.warn("Pas de contact_id ou d'utilisateur valide pour mise à jour GHL.");
     }
 
-    return res.status(200).send('Webhook traité avec succès.');
+    return res.status(200).send("Webhook traité avec succès.");
+
   } catch (err) {
-    console.error('Erreur dans webhook : ', err);
-    return res.status(500).send('Erreur serveur');
+    console.error("Erreur dans webhook : ", err);
+    return res.status(500).send("Erreur serveur");
   }
 };
-
