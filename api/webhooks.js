@@ -1,12 +1,8 @@
-console.log("Env Variables check:");
-console.log("SUPABASE_URL:", process.env.SUPABASE_URL ? "OK" : "MISSING");
-console.log("SUPABASE_SERVICE_KEY:", process.env.SUPABASE_SERVICE_KEY ? "OK" : "MISSING");
-console.log("GHL_API_KEY:", process.env.GHL_API_KEY ? "OK" : "MISSING");
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 
 const GHL_API_KEY = process.env.GHL_API_KEY;
-const GHL_API_BASE = 'https://services.leadconnectorhq.com/contacts'; // URL API GHL
+const GHL_API_BASE = 'https://services.leadconnectorhq.com/contacts';
 
 async function updateGHLContact(contact_id, supabase_user_id) {
   if (!GHL_API_KEY) {
@@ -17,7 +13,7 @@ async function updateGHLContact(contact_id, supabase_user_id) {
     const payload = {
       customFields: [
         {
-          key: "supabase_user_id", // Utilisation de la clé unique (nom du champ)
+          key: "supabase_user_id",
           value: supabase_user_id
         }
       ]
@@ -43,7 +39,6 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
-
   try {
     const ghlContact = req.body;
     console.log("🎉 Webhook GHL reçu :", ghlContact);
@@ -61,15 +56,11 @@ module.exports = async function handler(req, res) {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Recherche utilisateur supabase
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-      email: userEmail
-    });
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ email: userEmail });
     if (listError) throw listError;
 
     let supabaseUser;
     if (!users || users.length === 0) {
-      // Création utilisateur Supabase
       const { data: { user: newUser }, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: userEmail,
         email_confirm: true,
@@ -87,16 +78,15 @@ module.exports = async function handler(req, res) {
       console.log(`👍 Utilisateur existant : ${supabaseUser.email} (id: ${supabaseUser.id})`);
     }
 
-    // Mise à jour contact GHL avec id Supabase
     if (ghlContactId && supabaseUser && supabaseUser.id) {
       await updateGHLContact(ghlContactId, supabaseUser.id);
     } else {
       console.warn("⚠️ Pas de contact_id ou utilisateur valide pour mise à jour GHL.");
     }
 
-    return res.status(200).send("Webhook traité avec succès.");
+    res.status(200).send("Webhook traité avec succès.");
   } catch (error) {
     console.error("❌ Erreur webhook :", error.message || error);
-    return res.status(500).send("Erreur serveur");
+    res.status(500).send("Erreur serveur");
   }
 };
