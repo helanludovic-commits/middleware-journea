@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef } from 'react';
 import { Plus, Share2, Calendar, Bed, Car, MapPin, Utensils, ClipboardList, Edit, Trash2, X } from 'lucide-react';
 
@@ -766,4 +768,91 @@ export default function ModernItineraryKanban() {
         phone: ''
       });
       
-      setShowClientModal(false
+      setShowClientModal(false);
+      
+    } catch (error) {
+      console.error('Erreur synchronisation GHL:', error);
+      alert('Erreur lors de la synchronisation avec GHL. Lien copié quand même.');
+      
+      // Générer URL de partage même en cas d'erreur GHL
+      const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
+      navigator.clipboard.writeText(shareUrl);
+      
+      setShowClientModal(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* En-tête */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-blue-600" />
+              Générateur d'itinéraires
+            </h1>
+            <div className="flex gap-3">
+              <button
+                onClick={addDay}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Ajouter un jour
+              </button>
+              <button
+                onClick={shareItinerary}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Partager
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Contenu principal */}
+      <main className="max-w-7xl mx-auto p-6">
+        <div className="flex gap-6 overflow-x-auto pb-6">
+          {days.map((day, index) => (
+            <DraggableDay
+              key={day.id}
+              day={day}
+              index={index}
+              onAddElement={openAddElement}
+              onDeleteDay={deleteDay}
+              onEditElement={editElement}
+              onDeleteElement={deleteElement}
+              onMoveDay={moveDay}
+              onDropElement={dropElement}
+            />
+          ))}
+        </div>
+      </main>
+
+      {/* Modals */}
+      <TypeSelectionModal
+        isOpen={showTypeModal}
+        onClose={() => setShowTypeModal(false)}
+        onSelect={selectElementType}
+      />
+
+      <ElementFormModal
+        isOpen={showFormModal}
+        onClose={() => setShowFormModal(false)}
+        onSave={saveElement}
+        elementType={selectedElementType}
+        initialData={editingElement}
+      />
+
+      <ClientDataModal
+        isOpen={showClientModal}
+        onClose={() => setShowClientModal(false)}
+        onSave={finalizeShare}
+        clientData={clientData}
+        setClientData={setClientData}
+      />
+    </div>
+  );
+}
