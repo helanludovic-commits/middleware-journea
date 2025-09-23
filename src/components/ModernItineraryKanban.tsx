@@ -15,6 +15,13 @@ interface Day {
   elements: TravelElement[];
 }
 
+interface ClientData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+}
+
 // Configuration des types d'éléments
 const elementTypes = {
   accommodation: { 
@@ -79,6 +86,31 @@ const elementTypes = {
     ]
   }
 };
+
+// Fonction pour synchroniser avec GHL
+async function syncItineraryToGHL(itinerary: any, clientData: ClientData) {
+  try {
+    const response = await fetch('/api/ghl-sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        itinerary,
+        clientData
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors de la synchronisation GHL');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Erreur sync GHL:', error);
+    throw error;
+  }
+}
 
 // Composant élément avec drag & drop natif
 function DraggableElement({ element, onEdit, onDelete, dayId }: { 
@@ -435,6 +467,107 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }:
   );
 }
 
+// Modal pour les données client
+function ClientDataModal({ isOpen, onClose, onSave, clientData, setClientData }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  clientData: ClientData;
+  setClientData: React.Dispatch<React.SetStateAction<ClientData>>;
+}) {
+  if (!isOpen) return null;
+
+  const handleSubmit = () => {
+    if (!clientData.firstName || !clientData.lastName || !clientData.email) {
+      alert('Veuillez remplir au moins le prénom, nom et email');
+      return;
+    }
+    onSave();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold">Informations client</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Prénom <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={clientData.firstName}
+              onChange={(e) => setClientData(prev => ({ ...prev, firstName: e.target.value }))}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Prénom du client"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nom <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={clientData.lastName}
+              onChange={(e) => setClientData(prev => ({ ...prev, lastName: e.target.value }))}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Nom du client"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={clientData.email}
+              onChange={(e) => setClientData(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="email@exemple.com"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Téléphone
+            </label>
+            <input
+              type="tel"
+              value={clientData.phone}
+              onChange={(e) => setClientData(prev => ({ ...prev, phone: e.target.value }))}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="+33 6 12 34 56 78"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button 
+            onClick={onClose} 
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Annuler
+          </button>
+          <button 
+            onClick={handleSubmit} 
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Créer & Synchroniser
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Composant principal
 export default function ModernItineraryKanban() {
   const [days, setDays] = useState<Day[]>([
@@ -444,9 +577,16 @@ export default function ModernItineraryKanban() {
   
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
   const [selectedElementType, setSelectedElementType] = useState<keyof typeof elementTypes | null>(null);
   const [currentDayId, setCurrentDayId] = useState<string | null>(null);
   const [editingElement, setEditingElement] = useState<TravelElement | null>(null);
+  const [clientData, setClientData] = useState<ClientData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  });
 
   // Ajouter un jour
   const addDay = () => {
@@ -590,78 +730,40 @@ export default function ModernItineraryKanban() {
     }
   };
 
-  // Partager l'itinéraire
+  // Partager l'itinéraire - ouvre le modal client
   const shareItinerary = () => {
-    const itineraryId = `itinerary-${Date.now()}`;
-    localStorage.setItem(itineraryId, JSON.stringify(days));
-    const shareUrl = `${window.location.origin}/client?id=${itineraryId}`;
-    navigator.clipboard.writeText(shareUrl);
-    alert('Lien de partage copié dans le presse-papiers !');
+    setShowClientModal(true);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* En-tête */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Calendar className="w-6 h-6 text-blue-600" />
-              Générateur d'itinéraires
-            </h1>
-            <div className="flex gap-3">
-              <button
-                onClick={addDay}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Ajouter un jour
-              </button>
-              <button
-                onClick={shareItinerary}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Partager
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+  // Finaliser le partage avec synchronisation GHL
+  const finalizeShare = async () => {
+    const itineraryData = {
+      id: `itinerary-${Date.now()}`,
+      title: `Voyage ${clientData.firstName} ${clientData.lastName}`,
+      days: days,
+      createdAt: new Date().toISOString(),
+      clientData: clientData
+    };
 
-      {/* Contenu principal */}
-      <main className="max-w-7xl mx-auto p-6">
-        <div className="flex gap-6 overflow-x-auto pb-6">
-          {days.map((day, index) => (
-            <DraggableDay
-              key={day.id}
-              day={day}
-              index={index}
-              onAddElement={openAddElement}
-              onDeleteDay={deleteDay}
-              onEditElement={editElement}
-              onDeleteElement={deleteElement}
-              onMoveDay={moveDay}
-              onDropElement={dropElement}
-            />
-          ))}
-        </div>
-      </main>
+    try {
+      // Sauvegarder localement
+      localStorage.setItem(itineraryData.id, JSON.stringify(days));
 
-      {/* Modals */}
-      <TypeSelectionModal
-        isOpen={showTypeModal}
-        onClose={() => setShowTypeModal(false)}
-        onSelect={selectElementType}
-      />
-
-      <ElementFormModal
-        isOpen={showFormModal}
-        onClose={() => setShowFormModal(false)}
-        onSave={saveElement}
-        elementType={selectedElementType}
-        initialData={editingElement}
-      />
-    </div>
-  );
-}
+      // Synchroniser avec GHL
+      await syncItineraryToGHL(itineraryData, clientData);
+      
+      // Générer URL de partage
+      const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
+      navigator.clipboard.writeText(shareUrl);
+      
+      alert(`Itinéraire créé et synchronisé avec GHL !\nLien copié : ${shareUrl}`);
+      
+      // Réinitialiser les données client
+      setClientData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: ''
+      });
+      
+      setShowClientModal(false
