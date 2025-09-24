@@ -817,7 +817,7 @@ export default function ModernItineraryKanban() {
         onClose={() => setShowFormModal(false)}
         onSave={saveElement}
         elementType={selectedElementType}
-        initialData={editingElement}
+        initialData={editingElement || undefined}
       />
 
       <ClientDataModal
