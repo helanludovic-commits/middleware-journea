@@ -1,14 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Share2, Calendar, Bed, Car, MapPin, Utensils, ClipboardList, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Share2, Calendar, Bed, Car, MapPin, Utensils, ClipboardList, Edit, Trash2, X, Paperclip } from 'lucide-react';
 
 // Types
+interface FileAttachment {
+  id: string;
+  name: string;
+  type: string;
+  data: string; // base64
+  uploadedAt: string;
+}
+
 interface TravelElement {
   id: string;
   type: 'accommodation' | 'transport' | 'activity' | 'restaurant' | 'procedure';
   name: string;
   details: Record<string, any>;
+  files?: FileAttachment[];
 }
 
 interface Day {
@@ -173,6 +182,21 @@ function DraggableElement({ element, onEdit, onDelete, dayId }: {
           return null;
         })}
       </div>
+
+      {/* Affichage des fichiers joints */}
+      {element.files && element.files.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <div className="text-xs text-gray-500 mb-1">Fichiers joints:</div>
+          <div className="flex flex-wrap gap-1">
+            {element.files.map(file => (
+              <span key={file.id} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                <Paperclip className="w-3 h-3 mr-1" />
+                {file.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -353,14 +377,40 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }:
   initialData?: TravelElement;
 }) {
   const [formData, setFormData] = useState(initialData?.details || {});
+  const [files, setFiles] = useState<FileAttachment[]>(initialData?.files || []);
 
   React.useEffect(() => {
     if (initialData) {
       setFormData(initialData.details);
+      setFiles(initialData.files || []);
     } else {
       setFormData({});
+      setFiles([]);
     }
   }, [initialData]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    
+    selectedFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const newFile: FileAttachment = {
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          type: file.type,
+          data: reader.result as string,
+          uploadedAt: new Date().toISOString()
+        };
+        setFiles(prev => [...prev, newFile]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeFile = (fileId: string) => {
+    setFiles(prev => prev.filter(f => f.id !== fileId));
+  };
 
   if (!isOpen || !elementType) return null;
 
@@ -378,9 +428,11 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }:
     onSave({
       type: elementType,
       name: formData.name || '',
-      details: formData
+      details: formData,
+      files: files
     });
     setFormData({});
+    setFiles([]);
     onClose();
   };
 
@@ -433,6 +485,42 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }:
               )}
             </div>
           ))}
+
+          {/* Section upload de fichiers */}
+          <div className="border-t pt-4 mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Fichiers joints (PDFs, images)
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+              multiple
+              onChange={handleFileUpload}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            
+            {/* Affichage des fichiers uploadés */}
+            {files.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="text-xs text-gray-500">Fichiers ajoutés:</div>
+                {files.map(file => (
+                  <div key={file.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="w-3 h-3 text-gray-400" />
+                      <span>{file.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(file.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           
           <div className="flex gap-3 pt-4">
             <button
@@ -660,7 +748,8 @@ export default function ModernItineraryKanban() {
       id: editingElement?.id || `element-${Date.now()}`,
       type: elementData.type,
       name: elementData.name,
-      details: elementData.details
+      details: elementData.details,
+      files: elementData.files || []
     };
 
     setDays(days => days.map(day => {
@@ -722,8 +811,8 @@ export default function ModernItineraryKanban() {
     setShowClientModal(true);
   };
 
-  // Finaliser le partage - version simplifiée sans GHL
-  const finalizeShare = () => {
+  // Finaliser le partage avec sync GHL et Supabase
+  const finalizeShare = async () => {
     const itineraryData = {
       id: `itinerary-${Date.now()}`,
       title: `Voyage ${clientData.firstName} ${clientData.lastName}`,
@@ -732,26 +821,53 @@ export default function ModernItineraryKanban() {
       clientData: clientData
     };
 
-    // Sauvegarder localement
-    localStorage.setItem(itineraryData.id, JSON.stringify(days));
-    
-    // Générer URL de partage
-    const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
-    
-    // Copier dans le presse-papiers
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      alert(`Itinéraire créé avec succès !\n\nLien client copié dans le presse-papiers :\n${shareUrl}\n\nPartagez ce lien avec ${clientData.firstName} ${clientData.lastName}`);
-    }).catch(() => {
-      alert(`Itinéraire créé avec succès !\n\nLien client : ${shareUrl}`);
-    });
-    
-    // Réinitialiser les données client
-    setClientData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: ''
-    });
+    try {
+      // Sauvegarder localement
+      localStorage.setItem(itineraryData.id, JSON.stringify({
+        ...itineraryData,
+        days: days
+      }));
+
+      // Sync avec GHL via API route
+      const ghlResponse = await fetch('/api/ghl-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          itinerary: itineraryData,
+          clientData: clientData
+        })
+      });
+
+      // Générer URL de partage
+      const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
+      
+      if (ghlResponse.ok) {
+        // Copier dans le presse-papiers
+        await navigator.clipboard.writeText(shareUrl);
+        alert(`Itinéraire créé et synchronisé avec GHL !\n\nClient : ${clientData.firstName} ${clientData.lastName}\nEmail : ${clientData.email}\n\nLien client copié : ${shareUrl}`);
+      } else {
+        // Même si GHL échoue, on peut partager l'itinéraire
+        await navigator.clipboard.writeText(shareUrl);
+        alert(`Itinéraire créé !\n\nAttention : Synchronisation GHL échouée, mais le lien client est prêt :\n${shareUrl}`);
+      }
+      
+      // Réinitialiser les données client
+      setClientData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: ''
+      });
+      
+    } catch (error) {
+      console.error('Erreur lors du partage:', error);
+      // Fallback : au moins créer le lien
+      const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
+      await navigator.clipboard.writeText(shareUrl);
+      alert(`Itinéraire créé en local !\n\nErreur de synchronisation, mais le lien client est prêt :\n${shareUrl}`);
+    }
     
     setShowClientModal(false);
   };
