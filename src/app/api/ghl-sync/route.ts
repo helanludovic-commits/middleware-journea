@@ -1,67 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { syncGHLContacts, syncGHLOpportunities } from '@/lib/ghl-api';
 
 export async function POST(request: NextRequest) {
   try {
-    const { itinerary, clientData } = await request.json();
-    
-    // 1. Créer/mettre à jour le contact dans GHL
-    const contactResponse = await fetch('https://rest.gohighlevel.com/v1/contacts/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GHL_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        firstName: clientData.firstName,
-        lastName: clientData.lastName,
-        email: clientData.email,
-        phone: clientData.phone,
-        customFields: {
-          itinerary_id: itinerary.id,
-          itinerary_title: itinerary.title,
-          itinerary_created: itinerary.createdAt,
-          client_portal_url: `${process.env.NEXT_PUBLIC_SITE_URL}/client/${itinerary.id}`
-        }
-      })
-    });
+    console.log('🚀 Début de la synchronisation GHL');
 
-    const contactResult = await contactResponse.json();
-
-    // 2. Créer un custom object dans GHL pour l'itinéraire
-    if (contactResult.contact?.id) {
-      const customObjectResponse = await fetch('https://rest.gohighlevel.com/v1/custom-objects/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.GHL_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: 'Itinéraire de voyage',
-          contactId: contactResult.contact.id,
-          data: {
-            title: itinerary.title,
-            days_count: itinerary.days.length,
-            elements_count: itinerary.days.reduce((acc, day) => acc + day.elements.length, 0),
-            status: 'created',
-            client_url: `${process.env.NEXT_PUBLIC_SITE_URL}/client/${itinerary.id}`,
-            created_date: itinerary.createdAt
-          }
-        })
-      });
+    // Vérification de l'API key GHL
+    if (!process.env.GHL_API_KEY) {
+      console.error('❌ API Key GHL manquante');
+      return NextResponse.json(
+        { error: 'Configuration GHL manquante' },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      contact: contactResult,
-      message: 'Itinéraire synchronisé avec GHL'
+    const results = {
+      contacts: { synced: 0, errors: 0 },
+      opportunities: { synced: 0, errors: 0 },
+      startTime: new Date().toISOString(),
+      endTime: '',
+      success: false
+    };
+
+    try {
+      // 1. Synchroniser les contacts GHL → clients
+      console.log('📞 Synchronisation des contacts GHL...');
+      const contactsResult = await syncGHLContacts();
+      results.contacts = contactsResult;
+      console.log(`✅ Contacts synchronisés: ${contactsResult.synced}, erreurs: ${contactsResult.errors}`);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la synchronisation des contacts:', error);
+      results.contacts.errors++;
+    }
+
+    try {
+      // 2. Synchroniser les opportunités GHL → itinéraires
+      console.log('🎯 Synchronisation des opportunités GHL...');
+      const opportunitiesResult = await syncGHLOpportunities();
+      results.opportunities = opportunitiesResult;
+      console.log(`✅ Opportunités synchronisées: ${opportunitiesResult.synced}, erreurs: ${opportunitiesResult.errors}`);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la synchronisation des opportunités:', error);
+      results.opportunities.errors++;
+    }
+
+    results.endTime = new Date().toISOString();
+    results.success = true;
+
+    const totalSynced = results.contacts.synced + results.opportunities.synced;
+    const totalErrors = results.contacts.errors + results.opportunities.errors;
+
+    console.log(`🎉 Synchronisation terminée: ${totalSynced} éléments synchronisés, ${totalErrors} erreurs`);
+
+    return NextResponse.json({
+      success: true,
+      message: `Synchronisation réussie: ${totalSynced} éléments synchronisés`,
+      results
+    });
+
+  } catch (error) {
+    console.error('💥 Erreur générale lors de la synchronisation GHL:', error);
+    
+    return NextResponse.json(
+      { 
+        error: 'Erreur lors de la synchronisation GHL',
+        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  // Endpoint pour vérifier le statut de l'API GHL
+  try {
+    const isConfigured = !!process.env.GHL_API_KEY && !!process.env.GHL_LOCATION_ID;
+    
+    return NextResponse.json({
+      configured: isConfigured,
+      lastSync: null, // Vous pouvez stocker cette info en base si nécessaire
+      status: isConfigured ? 'ready' : 'not_configured'
     });
     
   } catch (error) {
-    console.error('GHL Sync Error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Synchronisation GHL échouée',
-      details: error.message 
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Erreur lors de la vérification du statut GHL' },
+      { status: 500 }
+    );
   }
 }
