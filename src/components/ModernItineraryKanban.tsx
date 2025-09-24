@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Plus, Share2, Calendar, Bed, Car, MapPin, Utensils, ClipboardList, Edit, Trash2, X } from 'lucide-react';
 
 // Types
@@ -24,6 +24,16 @@ interface ClientData {
   phone: string;
 }
 
+interface FieldConfig {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  min?: number;
+  max?: number;
+  options?: string[];
+}
+
 // Configuration des types d'éléments
 const elementTypes = {
   accommodation: { 
@@ -37,7 +47,7 @@ const elementTypes = {
       { key: "checkout", label: "Check-out", type: "time" },
       { key: "price", label: "Prix", type: "text" },
       { key: "stars", label: "Étoiles", type: "number", min: 1, max: 5 }
-    ]
+    ] as FieldConfig[]
   },
   transport: { 
     name: "Transport", 
@@ -50,7 +60,7 @@ const elementTypes = {
       { key: "time", label: "Heure de départ", type: "time" },
       { key: "number", label: "Numéro de vol/train", type: "text" },
       { key: "price", label: "Prix", type: "text" }
-    ]
+    ] as FieldConfig[]
   },
   activity: { 
     name: "Activité", 
@@ -62,7 +72,7 @@ const elementTypes = {
       { key: "time", label: "Heure", type: "time" },
       { key: "duration", label: "Durée", type: "text" },
       { key: "price", label: "Prix", type: "text" }
-    ]
+    ] as FieldConfig[]
   },
   restaurant: { 
     name: "Restaurant", 
@@ -74,7 +84,7 @@ const elementTypes = {
       { key: "time", label: "Heure de réservation", type: "time" },
       { key: "cuisine", label: "Type de cuisine", type: "text" },
       { key: "price", label: "Prix moyen", type: "text" }
-    ]
+    ] as FieldConfig[]
   },
   procedure: { 
     name: "Démarche", 
@@ -85,34 +95,9 @@ const elementTypes = {
       { key: "description", label: "Description", type: "textarea", required: true },
       { key: "deadline", label: "Date limite", type: "date" },
       { key: "location", label: "Lieu", type: "text" }
-    ]
+    ] as FieldConfig[]
   }
 };
-
-// Fonction pour synchroniser avec GHL
-async function syncItineraryToGHL(itinerary: any, clientData: ClientData) {
-  try {
-    const response = await fetch('/api/ghl-sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        itinerary,
-        clientData
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Erreur lors de la synchronisation GHL');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Erreur sync GHL:', error);
-    throw error;
-  }
-}
 
 // Composant élément avec drag & drop natif
 function DraggableElement({ element, onEdit, onDelete, dayId }: { 
@@ -418,14 +403,14 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }:
                 {field.label} {field.required && <span className="text-red-500">*</span>}
               </label>
               
-              {field.type === 'select' ? (
+              {field.type === 'select' && field.options ? (
                 <select
                   value={formData[field.key] || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Sélectionner</option>
-                  {field.options?.map(option => (
+                  {field.options.map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
@@ -562,7 +547,7 @@ function ClientDataModal({ isOpen, onClose, onSave, clientData, setClientData }:
             onClick={handleSubmit} 
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
-            Créer & Synchroniser
+            Créer & Partager
           </button>
         </div>
       </div>
@@ -737,8 +722,8 @@ export default function ModernItineraryKanban() {
     setShowClientModal(true);
   };
 
-  // Finaliser le partage avec synchronisation GHL
-  const finalizeShare = async () => {
+  // Finaliser le partage - version simplifiée sans GHL
+  const finalizeShare = () => {
     const itineraryData = {
       id: `itinerary-${Date.now()}`,
       title: `Voyage ${clientData.firstName} ${clientData.lastName}`,
@@ -747,39 +732,28 @@ export default function ModernItineraryKanban() {
       clientData: clientData
     };
 
-    try {
-      // Sauvegarder localement
-      localStorage.setItem(itineraryData.id, JSON.stringify(days));
-
-      // Synchroniser avec GHL
-      await syncItineraryToGHL(itineraryData, clientData);
-      
-      // Générer URL de partage
-      const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
-      navigator.clipboard.writeText(shareUrl);
-      
-      alert(`Itinéraire créé et synchronisé avec GHL !\nLien copié : ${shareUrl}`);
-      
-      // Réinitialiser les données client
-      setClientData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: ''
-      });
-      
-      setShowClientModal(false);
-      
-    } catch (error) {
-      console.error('Erreur synchronisation GHL:', error);
-      alert('Erreur lors de la synchronisation avec GHL. Lien copié quand même.');
-      
-      // Générer URL de partage même en cas d'erreur GHL
-      const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
-      navigator.clipboard.writeText(shareUrl);
-      
-      setShowClientModal(false);
-    }
+    // Sauvegarder localement
+    localStorage.setItem(itineraryData.id, JSON.stringify(days));
+    
+    // Générer URL de partage
+    const shareUrl = `${window.location.origin}/client/${itineraryData.id}`;
+    
+    // Copier dans le presse-papiers
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert(`Itinéraire créé avec succès !\n\nLien client copié dans le presse-papiers :\n${shareUrl}\n\nPartagez ce lien avec ${clientData.firstName} ${clientData.lastName}`);
+    }).catch(() => {
+      alert(`Itinéraire créé avec succès !\n\nLien client : ${shareUrl}`);
+    });
+    
+    // Réinitialiser les données client
+    setClientData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: ''
+    });
+    
+    setShowClientModal(false);
   };
 
   return (
