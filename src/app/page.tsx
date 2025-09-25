@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ModernItineraryKanban } from '@/components/ModernItineraryKanban';
+import ModernItineraryKanban from '@/components/ModernItineraryKanban';
 import { Navbar } from '@/components/Navbar';
 import { Itinerary, Client } from '@/types';
 import { supabase } from '@/lib/supabase';

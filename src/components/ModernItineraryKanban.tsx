@@ -945,4 +945,8 @@ export default function ModernItineraryKanban() {
       />
     </div>
   );
+  
 }
+
+// À la fin du fichier, assurez-vous d'avoir :
+export { ModernItineraryKanban };
