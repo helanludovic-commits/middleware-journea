@@ -218,7 +218,7 @@ function DraggableDay({
   onEditElement, 
   onDeleteElement,
   onMoveDay,
-  onDropElement 
+  onDropElement, 
   onReorderElements
 }: {
   day: Day;
