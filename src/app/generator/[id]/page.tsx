@@ -822,5 +822,8 @@ export default function GeneratorPage() {
     setCurrentDayId(null);
   }}
   elementType={selectedElementType}
-  initialData={editingElement || undefined}
-/>
+        initialData={editingElement || undefined}
+      />
+    </div>
+  );
+}
