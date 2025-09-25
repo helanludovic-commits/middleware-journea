@@ -219,6 +219,7 @@ function DraggableDay({
   onDeleteElement,
   onMoveDay,
   onDropElement 
+  onReorderElements
 }: {
   day: Day;
   index: number;
@@ -269,6 +270,10 @@ function DraggableDay({
       console.error('Error parsing drag data:', error);
     }
   };
+
+    function onReorderElements(id: string, sourceIndex: any, elementIndex: number) {
+        throw new Error('Function not implemented.');
+    }
 
   return (
     <div
