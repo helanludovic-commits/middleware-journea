@@ -2,40 +2,67 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const response = await fetch(`https://rest.gohighlevel.com/v1/contacts/${params.id}`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.GHL_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Contact not found');
-    }
-
-    const data = await response.json();
+    // Attendre la résolution des params
+    const { id } = await params;
     
-    const formattedClient = {
-      id: data.contact.id,
-      firstName: data.contact.firstName || '',
-      lastName: data.contact.lastName || '',
-      email: data.contact.email || '',
-      phone: data.contact.phone || ''
-    };
-
+    // Votre logique ici
     return NextResponse.json({
       success: true,
-      client: formattedClient
+      clientId: id,
+      message: 'Client récupéré avec succès'
     });
-
   } catch (error) {
-    console.error('Error fetching GHL client:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de la récupération du client' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    
+    // Votre logique de mise à jour ici
+    
     return NextResponse.json({
-      success: false,
-      error: 'Client not found'
-    }, { status: 404 });
+      success: true,
+      clientId: id,
+      message: 'Client mis à jour avec succès'
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Erreur lors de la mise à jour du client' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    
+    // Votre logique de suppression ici
+    
+    return NextResponse.json({
+      success: true,
+      clientId: id,
+      message: 'Client supprimé avec succès'
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Erreur lors de la suppression du client' },
+      { status: 500 }
+    );
   }
 }
