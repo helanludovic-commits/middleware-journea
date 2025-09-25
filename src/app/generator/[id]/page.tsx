@@ -48,7 +48,12 @@ interface FieldConfig {
 }
 
 // Configuration des types d'éléments
-const elementTypes = {
+const elementTypes: Record<string, {
+  name: string;
+  icon: any;
+  color: string;
+  fields: FieldConfig[];
+}> = {
   accommodation: { 
     name: "Hébergement", 
     icon: Bed, 
@@ -455,7 +460,7 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }:
                 {field.label} {field.required && <span className="text-red-500">*</span>}
               </label>
               
-              {field.type === 'select' && field.options ? (
+              {field.type === 'select' && 'options' in field && field.options ? (
                 <select
                   value={formData[field.key] || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
