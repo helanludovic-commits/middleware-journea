@@ -228,6 +228,7 @@ function DraggableDay({
   onDeleteElement: (dayId: string, elementId: string) => void;
   onMoveDay: (fromIndex: number, toIndex: number) => void;
   onDropElement: (elementId: string, sourceDayId: string, targetDayId: string) => void;
+  onReorderElements: (dayId: string, fromIndex: number, toIndex: number) => void;
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -301,14 +302,38 @@ function DraggableDay({
 
       <div className="flex-1 p-4 min-h-[300px]">
         <div className="space-y-3">
-          {day.elements.map(element => (
-            <DraggableElement
+          {day.elements.map((element, elementIndex) => (
+            <div
               key={element.id}
-              element={element}
-              dayId={day.id}
-              onEdit={onEditElement}
-              onDelete={(elementId) => onDeleteElement(day.id, elementId)}
-            />
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', JSON.stringify({ 
+                  elementId: element.id, 
+                  sourceDayId: day.id,
+                  sourceIndex: elementIndex,
+                  type: 'element-reorder'
+                }));
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                
+                if (data.type === 'element-reorder' && data.sourceDayId === day.id) {
+                  onReorderElements(day.id, data.sourceIndex, elementIndex);
+                }
+              }}
+              className="cursor-move"
+            >
+              <DraggableElement
+                element={element}
+                dayId={day.id}
+                onEdit={onEditElement}
+                onDelete={(elementId) => onDeleteElement(day.id, elementId)}
+              />
+            </div>
           ))}
         </div>
         
@@ -551,7 +576,8 @@ export default function GeneratorPage() {
   const params = useParams();
   const router = useRouter();
   const itineraryId = params.id as string;
-  
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
   const [itinerary, setItinerary] = useState<ItineraryData | null>(null);
   const [days, setDays] = useState<Day[]>([
     { id: 'day-1', name: 'Jour 1', elements: [] },
@@ -590,7 +616,7 @@ export default function GeneratorPage() {
       console.error('Erreur chargement itinéraire:', error);
     } finally {
       setLoading(false);
-    }
+    }   
   };
 
   const saveItinerary = () => {
@@ -664,6 +690,21 @@ export default function GeneratorPage() {
     });
   };
 
+  // Réorganiser les éléments dans un même jour
+  const reorderElements = (dayId: string, fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    
+    setDays(days => days.map(day => {
+      if (day.id === dayId) {
+        const newElements = [...day.elements];
+        const [movedElement] = newElements.splice(fromIndex, 1);
+        newElements.splice(toIndex, 0, movedElement);
+        return { ...day, elements: newElements };
+      }
+      return day;
+    }));
+  };
+
   const openAddElement = (dayId: string) => {
     setCurrentDayId(dayId);
     setEditingElement(null);
@@ -732,7 +773,11 @@ export default function GeneratorPage() {
                 <Plus className="w-4 h-4 mr-2" />
                 Ajouter un jour
               </Button>
-              <Button onClick={saveItinerary}>
+              <Button onClick={() => {
+                const url = `${window.location.origin}/client/${itinerary?.client?.id}`;
+                setShareUrl(url);
+                setShowShareModal(true);
+              }}>
                 <Share2 className="w-4 h-4 mr-2" />
                 Partager
               </Button>
@@ -778,9 +823,83 @@ export default function GeneratorPage() {
         }}
         onMoveDay={moveDay}
         onDropElement={dropElement}
+        onReorderElements={reorderElements}
       />
     ))}
   </div>
+  
+  {/* Modal de partage */}
+{showShareModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-semibold">Partager l'itinéraire</h3>
+        <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Lien de partage client
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={shareUrl}
+              readOnly
+              className="flex-1 p-2 border border-gray-300 rounded-md bg-gray-50"
+            />
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(shareUrl);
+                alert('Lien copié !');
+              }}
+              variant="outline"
+            >
+              Copier
+            </Button>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            onClick={() => window.open(shareUrl, '_blank')}
+            variant="outline"
+            className="flex-1"
+          >
+            Aperçu client
+          </Button>
+          <Button
+            onClick={async () => {
+              // Envoi du lien vers GHL
+              try {
+                await fetch('/api/ghl-update-opportunity', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    itineraryId: itinerary?.id,
+                    clientId: itinerary?.client?.id,
+                    shareUrl: shareUrl
+                  })
+                });
+                alert('Lien envoyé au client et ajouté à GHL !');
+                setShowShareModal(false);
+              } catch (error) {
+                console.error('Erreur GHL:', error);
+                alert('Lien copié, mais erreur de synchronisation GHL');
+              }
+            }}
+            className="flex-1"
+          >
+            Envoyer au client
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 </main>
 
 {/* Modales */}
