@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             customFields: {
-              'lien_itineraire': shareUrl // Nom du custom field à créer dans GHL
+              'lien_itineraire': shareUrl // Créez ce custom field dans GHL
             }
           })
         }
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('Erreur API GHL:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }
