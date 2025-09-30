@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useInstantSave } from '@/hooks/useInstantSave';
-import { SaveIndicator } from '@/components/SaveIndicator';
-import { Plus, Share2, Calendar, Bed, Car, MapPin, Utensils, ClipboardList, Edit, Trash2, X, Paperclip, ArrowLeft } from 'lucide-react';
+import { Plus, Share2, Calendar, Bed, Car, MapPin, Utensils, ClipboardList, Edit, Trash2, X, Paperclip, ArrowLeft, Save } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
@@ -596,25 +594,57 @@ export default function GeneratorPage() {
   const [editingElement, setEditingElement] = useState<TravelElement | null>(null);
   
   // Sauvegarde INSTANTANÉE
-  const saveState = useInstantSave({ ...itinerary, days }, {
-    enabled: !!itinerary && !loading,
-    onSave: async (data) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const saveItinerary = async () => {
+    if (!itinerary) return;
+  
+    setIsSaving(true);
+    try {
       localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
-        ...data,
+        ...itinerary,
+        days,
         lastSaved: new Date().toISOString()
       }));
     
       const { error } = await supabase
         .from('itineraires')
         .update({ 
-          contenu: JSON.stringify(data.days),
+          contenu: JSON.stringify(days),
           updated_at: new Date().toISOString()
         })
         .eq('id', itineraryId);
-      
+    
       if (error) throw error;
+    
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+      console.log('✅ Sauvegarde réussie');
+    } catch (error) {
+      console.error('❌ Erreur de sauvegarde:', error);
+      alert('Erreur lors de la sauvegarde. Veuillez réessayer.');
+    } finally {
+      setIsSaving(false);
     }
-  });
+  };
+
+  useEffect(() => {
+    if (!loading && itinerary) {
+      setHasUnsavedChanges(true);
+    }
+  }, [days]);
+
+  useEffect(() => {
+    if (hasUnsavedChanges && !loading && itinerary) {
+      const autoSaveInterval = setInterval(() => {
+        saveItinerary();
+      }, 10000);
+    
+      return () => clearInterval(autoSaveInterval);
+    }
+  }, [hasUnsavedChanges, days, loading, itinerary]);
   
   useEffect(() => {
     loadItinerary();
@@ -775,24 +805,44 @@ export default function GeneratorPage() {
             </div>
             
             <div className="flex items-center gap-4">
-              {/* Indicateur de sauvegarde */}
-              <SaveIndicator
-                isSaving={saveState.isSaving}
-                lastSaved={saveState.lastSaved}
-                error={saveState.error}
-                pendingChanges={false}
-                onSaveNow={saveState.saveNow}
-              />
+              <div className="flex items-center gap-2 text-sm">
+                {isSaving && (
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                    <span>Sauvegarde...</span>
+                  </div>
+                )}
+                {!isSaving && lastSaved && (
+                  <div className="text-green-600 text-xs">
+                    Sauvegardé à {lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+                {!isSaving && hasUnsavedChanges && (
+                  <div className="text-orange-600 text-xs">
+                    Modifications non sauvegardées
+                  </div>
+                )}
+                </div>
 
-              <div className="flex items-center gap-4">
-                {/* Indicateur de sauvegarde instantanée */}
-                <SaveIndicator
-                  isSaving={saveState.isSaving}
-                  lastSaved={saveState.lastSaved}
-                  error={saveState.error}
-                  pendingChanges={false}
-                  onSaveNow={saveState.saveNow}
-                />
+                <Button 
+                  onClick={saveItinerary}
+                  disabled={isSaving || !hasUnsavedChanges}
+                  variant={hasUnsavedChanges ? "default" : "outline"}
+                  className={hasUnsavedChanges ? "animate-pulse" : ""}
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                      Sauvegarde...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Sauvegarder
+                    </>
+                  )}
+                </Button>
+                
                 <div className="flex gap-3">
                   <Button onClick={addDay} variant="secondary">
                     <Plus className="w-4 h-4 mr-2" />
