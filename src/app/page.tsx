@@ -17,7 +17,6 @@ interface Itinerary {
   statut: 'creation' | 'pending_payment' | 'paid';
   created_at: string;
   updated_at: string;
-  client_id?: string;
 }
 
 export default function HomePage() {
@@ -27,7 +26,7 @@ export default function HomePage() {
   const [newItinerary, setNewItinerary] = useState({
     titre: '',
     destination: '',
-    dateType: 'dates' as 'dates' | 'duration',
+    dateType: 'dates',
     date_debut: '',
     date_fin: '',
     duration: 3,
@@ -58,29 +57,6 @@ export default function HomePage() {
 
   const createItinerary = async () => {
     try {
-      // Créer d'abord un client par défaut si nécessaire
-      let clientId = null;
-      
-      const { data: existingClient } = await supabase
-        .from('clients')
-        .select('id')
-        .limit(1)
-        .single();
-      
-      if (existingClient) {
-        clientId = existingClient.id;
-      } else {
-        // Créer un client par défaut
-        const { data: newClient, error: clientError } = await supabase
-          .from('clients')
-          .insert([{ nom: 'Client Par Défaut', email: 'default@example.com' }])
-          .select()
-          .single();
-        
-        if (clientError) throw clientError;
-        clientId = newClient.id;
-      }
-
       const itineraryData = {
         titre: newItinerary.titre,
         destination: newItinerary.destination,
@@ -91,11 +67,9 @@ export default function HomePage() {
           ? newItinerary.date_fin 
           : new Date(Date.now() + newItinerary.duration * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         nb_voyageurs: newItinerary.nb_voyageurs,
-        budget: newItinerary.budget || null,
-        cout_agence: newItinerary.cout_agence || null,
-        statut: 'creation',
-        client_id: clientId,
-        contenu: []
+        budget: newItinerary.budget,
+        cout_agence: newItinerary.cout_agence,
+        statut: 'creation'
       };
 
       const { data, error } = await supabase
@@ -307,20 +281,20 @@ export default function HomePage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 flex items-center">
                             <Euro className="w-3 h-3 mr-1" />
-                            {itinerary.budget ? `${itinerary.budget.toLocaleString()} €` : '-'}
+                            {itinerary.budget ? `${itinerary.budget.toLocaleString()} €` : 'Non défini'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 flex items-center">
                             <Euro className="w-3 h-3 mr-1" />
-                            {itinerary.cout_agence ? `${itinerary.cout_agence.toLocaleString()} €` : '-'}
+                            {itinerary.cout_agence ? `${itinerary.cout_agence.toLocaleString()} €` : 'Non défini'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <select
                             value={itinerary.statut}
                             onChange={(e) => updateStatus(itinerary.id, e.target.value as any)}
-                            className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${statusConfig.color} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                            className={`text-xs px-2 py-1 rounded-full border ${statusConfig.color} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           >
                             <option value="creation">En cours de création</option>
                             <option value="pending_payment">En attente de paiement</option>
@@ -328,31 +302,31 @@ export default function HomePage() {
                           </select>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end gap-3">
+                          <div className="flex justify-end gap-2">
                             <Link 
                               href={`/generator/${itinerary.id}`}
-                              className="text-blue-600 hover:text-blue-900 transition-colors"
+                              className="text-blue-600 hover:text-blue-900"
                               title="Modifier"
                             >
                               <Edit3 className="w-4 h-4" />
                             </Link>
                             <button
                               onClick={() => window.open(`/client/${itinerary.id}`, '_blank')}
-                              className="text-purple-600 hover:text-purple-900 transition-colors"
+                              className="text-purple-600 hover:text-purple-900"
                               title="Aperçu"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => shareItinerary(itinerary.id)}
-                              className="text-green-600 hover:text-green-900 transition-colors"
+                              className="text-green-600 hover:text-green-900"
                               title="Partager"
                             >
                               <Share2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => deleteItinerary(itinerary.id)}
-                              className="text-red-600 hover:text-red-900 transition-colors"
+                              className="text-red-600 hover:text-red-900"
                               title="Supprimer"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -380,7 +354,7 @@ export default function HomePage() {
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet</label>
                       <input
                         type="text"
                         value={newItinerary.titre}
@@ -391,7 +365,7 @@ export default function HomePage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Destination *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
                       <input
                         type="text"
                         value={newItinerary.destination}
@@ -402,9 +376,9 @@ export default function HomePage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">Planification temporelle *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Planification temporelle</label>
                       <div className="space-y-3">
-                        <label className="flex items-center cursor-pointer">
+                        <label className="flex items-center">
                           <input
                             type="radio"
                             name="dateType"
@@ -413,9 +387,9 @@ export default function HomePage() {
                             onChange={(e) => setNewItinerary({ ...newItinerary, dateType: e.target.value as 'dates' | 'duration' })}
                             className="mr-2"
                           />
-                          <span>Dates précises (aller/retour)</span>
+                          Dates précises (aller/retour)
                         </label>
-                        <label className="flex items-center cursor-pointer">
+                        <label className="flex items-center">
                           <input
                             type="radio"
                             name="dateType"
@@ -424,7 +398,7 @@ export default function HomePage() {
                             onChange={(e) => setNewItinerary({ ...newItinerary, dateType: e.target.value as 'dates' | 'duration' })}
                             className="mr-2"
                           />
-                          <span>Nombre de jours</span>
+                          Nombre de jours
                         </label>
                       </div>
                     </div>
@@ -432,7 +406,7 @@ export default function HomePage() {
                     {newItinerary.dateType === 'dates' ? (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de début *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
                           <input
                             type="date"
                             value={newItinerary.date_debut}
@@ -441,7 +415,7 @@ export default function HomePage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
                           <input
                             type="date"
                             value={newItinerary.date_fin}
@@ -452,12 +426,12 @@ export default function HomePage() {
                       </div>
                     ) : (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de jours *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de jours</label>
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => setNewItinerary({ ...newItinerary, duration: Math.max(1, newItinerary.duration - 1) })}
-                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                           >
                             -
                           </button>
@@ -471,7 +445,7 @@ export default function HomePage() {
                           <button
                             type="button"
                             onClick={() => setNewItinerary({ ...newItinerary, duration: newItinerary.duration + 1 })}
-                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                           >
                             +
                           </button>
@@ -481,12 +455,12 @@ export default function HomePage() {
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de voyageurs *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de voyageurs</label>
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
                           onClick={() => setNewItinerary({ ...newItinerary, nb_voyageurs: Math.max(1, newItinerary.nb_voyageurs - 1) })}
-                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                         >
                           -
                         </button>
@@ -500,7 +474,7 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => setNewItinerary({ ...newItinerary, nb_voyageurs: newItinerary.nb_voyageurs + 1 })}
-                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                         >
                           +
                         </button>
@@ -515,7 +489,7 @@ export default function HomePage() {
                           type="number"
                           min="0"
                           step="100"
-                          value={newItinerary.budget || ''}
+                          value={newItinerary.budget}
                           onChange={(e) => setNewItinerary({ ...newItinerary, budget: parseInt(e.target.value) || 0 })}
                           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0"
@@ -527,7 +501,7 @@ export default function HomePage() {
                           type="number"
                           min="0"
                           step="50"
-                          value={newItinerary.cout_agence || ''}
+                          value={newItinerary.cout_agence}
                           onChange={(e) => setNewItinerary({ ...newItinerary, cout_agence: parseInt(e.target.value) || 0 })}
                           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0"
@@ -541,7 +515,7 @@ export default function HomePage() {
                   <button
                     onClick={createItinerary}
                     disabled={!newItinerary.titre || !newItinerary.destination || (newItinerary.dateType === 'dates' && (!newItinerary.date_debut || !newItinerary.date_fin))}
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     Créer le projet
                   </button>
@@ -550,7 +524,7 @@ export default function HomePage() {
                       setShowCreateModal(false);
                       resetForm();
                     }}
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   >
                     Annuler
                   </button>
