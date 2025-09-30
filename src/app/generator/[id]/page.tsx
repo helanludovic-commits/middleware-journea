@@ -600,31 +600,43 @@ export default function GeneratorPage() {
 
   const saveItinerary = async () => {
     if (!itinerary) return;
-  
+
     setIsSaving(true);
     try {
+      // 1. Sauvegarde localStorage (immédiate, toujours réussie)
       localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
         ...itinerary,
         days,
         lastSaved: new Date().toISOString()
       }));
-    
+
+      // 2. Sauvegarde Supabase (en arrière-plan)
       const { error } = await supabase
         .from('itineraires')
         .update({ 
-          contenu: JSON.stringify(days),
+          contenu: days, // Pas besoin de JSON.stringify avec JSONB
           updated_at: new Date().toISOString()
         })
         .eq('id', itineraryId);
-    
-      if (error) throw error;
-    
+
+      if (error) {
+        console.error('Erreur Supabase:', error);
+        // On continue quand même car localStorage a fonctionné
+        console.warn('Données sauvegardées localement uniquement');
+      } else {
+        console.log('✅ Sauvegarde complète (local + cloud)');
+      }
+
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
-      console.log('✅ Sauvegarde réussie');
     } catch (error) {
       console.error('❌ Erreur de sauvegarde:', error);
-      alert('Erreur lors de la sauvegarde. Veuillez réessayer.');
+      // Afficher le détail de l'erreur pour déboguer
+      if (error instanceof Error) {
+        alert(`Erreur: ${error.message}`);
+      } else {
+        alert('Erreur lors de la sauvegarde. Données sauvegardées localement.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -657,17 +669,30 @@ export default function GeneratorPage() {
         .select(`*, client:clients(*)`)
         .eq('id', itineraryId)
         .single();
-        
+      
       if (error) throw error;
       setItinerary(itineraryData);
-      
-      // Charger les jours sauvegardés ou utiliser les jours par défaut
-      const savedDays = JSON.parse(localStorage.getItem(`itinerary-${itineraryId}`) || 'null');
-      if (savedDays?.days) {
-        setDays(savedDays.days);
+    
+      // Charger les jours depuis Supabase en priorité
+      if (itineraryData.contenu && Array.isArray(itineraryData.contenu)) {
+        setDays(itineraryData.contenu);
+        console.log('✅ Données chargées depuis Supabase');
+      } else {
+        // Fallback sur localStorage si pas de données dans Supabase
+        const savedDays = JSON.parse(localStorage.getItem(`itinerary-${itineraryId}`) || 'null');
+        if (savedDays?.days) {
+          setDays(savedDays.days);
+          console.log('📦 Données chargées depuis localStorage');
+        }
       }
     } catch (error) {
       console.error('Erreur chargement itinéraire:', error);
+      // En cas d'erreur totale, charger depuis localStorage
+      const savedDays = JSON.parse(localStorage.getItem(`itinerary-${itineraryId}`) || 'null');
+      if (savedDays?.days) {
+        setDays(savedDays.days);
+        console.log('📦 Données de secours chargées depuis localStorage');
+      }
     } finally {
       setLoading(false);
     }   
