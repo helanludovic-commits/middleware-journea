@@ -905,8 +905,8 @@ export default function GeneratorPage() {
         </div>
       </main>
   
-  {/* Modal de partage */}
-{showShareModal && (
+      {/* Modal de partage */}
+      {showShareModal && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div className="bg-white rounded-lg p-6 w-full max-w-md">
       <div className="flex justify-between items-center mb-6">
@@ -977,7 +977,6 @@ export default function GeneratorPage() {
     </div>
   </div>
 )}
-</main>
 
 {/* Modales */}
 <TypeSelectionModal
