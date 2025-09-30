@@ -47,6 +47,35 @@ interface FieldConfig {
   options?: string[];
 }
 
+// Ajoutez cet objet au début du fichier, après les interfaces (ligne ~40)
+const fieldLabels: Record<string, string> = {
+  // Hébergement
+  name: "Nom",
+  address: "Adresse",
+  checkin: "Arrivée",
+  checkout: "Départ",
+  price: "Prix",
+  stars: "Étoiles",
+  
+  // Transport
+  type: "Type",
+  departure: "Départ",
+  arrival: "Arrivée",
+  time: "Heure",
+  number: "Numéro",
+  
+  // Activité
+  location: "Lieu",
+  duration: "Durée",
+  
+  // Restaurant
+  cuisine: "Type de cuisine",
+  
+  // Démarche
+  description: "Description",
+  deadline: "Date limite"
+};
+
 // Configuration des types d'éléments
 const elementTypes: Record<string, {
   name: string;
@@ -183,7 +212,7 @@ function DraggableElement({ element, onEdit, onDelete, dayId }: {
           if (key !== 'name' && value) {
             return (
               <div key={key} className="flex justify-between">
-                <span className="capitalize">{key}:</span>
+                <span className="capitalize">{fieldLabels[key] || key}:</span>
                 <span>{value}</span>
               </div>
             );
