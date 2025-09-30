@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useInstantSave } from '@/hooks/useInstantSave';
+import { SaveIndicator } from '@/components/SaveIndicator';
 import { Plus, Share2, Calendar, Bed, Car, MapPin, Utensils, ClipboardList, Edit, Trash2, X, Paperclip, ArrowLeft } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/Button';
@@ -592,7 +594,56 @@ export default function GeneratorPage() {
   const [selectedElementType, setSelectedElementType] = useState<keyof typeof elementTypes | null>(null);
   const [currentDayId, setCurrentDayId] = useState<string | null>(null);
   const [editingElement, setEditingElement] = useState<TravelElement | null>(null);
+  
+  // Sauvegarde INSTANTANÉE
+  const saveState = useInstantSave({ ...itinerary, days }, {
+    enabled: !!itinerary && !loading,
+    onSave: async (data) => {
+      localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
+        ...data,
+        lastSaved: new Date().toISOString()
+      }));
+    
+      const { error } = await supabase
+        .from('itineraires')
+        .update({ 
+          contenu: JSON.stringify(data.days),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', itineraryId);
+      
+      if (error) throw error;
+    }
+  });
 
+  // Configuration de la sauvegarde automatique
+  const autoSaveState = useAutoSave({ ...itinerary, days }, {
+    delay: 2000, // 2 secondes d'attente après la dernière modification
+    maxWait: 10000, // Sauvegarde forcée après 10 secondes max
+    enabled: !!itinerary && !loading, // Activer seulement si l'itinéraire est chargé
+    onSave: async (data) => {
+      // Sauvegarde dans localStorage ET base de données
+      localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
+        ...data,
+        lastSaved: new Date().toISOString()
+      }));
+    
+      // Optionnel : sauvegarder aussi en base de données
+      const { error } = await supabase
+        .from('itineraires')
+        .update({ 
+          contenu: JSON.stringify(data.days),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', itineraryId);
+    
+      if (error) throw error;
+    },
+    onError: (error) => {
+      console.error('Erreur de sauvegarde automatique:', error);
+    }
+  });
+  
   useEffect(() => {
     loadItinerary();
   }, [itineraryId]);
@@ -618,16 +669,6 @@ export default function GeneratorPage() {
     } finally {
       setLoading(false);
     }   
-  };
-
-  const saveItinerary = () => {
-    if (itinerary) {
-      localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
-        ...itinerary,
-        days: days,
-        lastSaved: new Date().toISOString()
-      }));
-    }
   };
 
   // Ajouter un jour
@@ -718,14 +759,6 @@ export default function GeneratorPage() {
     setShowFormModal(true);
   };
 
-  // Auto-save quand les jours changent
-  useEffect(() => {
-    if (!loading && itinerary) {
-      const timeoutId = setTimeout(saveItinerary, 1000);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [days, itinerary, loading]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -769,19 +802,40 @@ export default function GeneratorPage() {
               </div>
             </div>
             
-            <div className="flex gap-3">
-              <Button onClick={addDay} variant="secondary">
-                <Plus className="w-4 h-4 mr-2" />
-                Ajouter un jour
-              </Button>
-              <Button onClick={() => {
-                const url = `${window.location.origin}/client/${itinerary?.client?.id}`;
-                setShareUrl(url);
-                setShowShareModal(true);
-              }}>
-                <Share2 className="w-4 h-4 mr-2" />
-                Partager
-              </Button>
+            <div className="flex items-center gap-4">
+              {/* Indicateur de sauvegarde */}
+              <SaveIndicator
+                isSaving={autoSaveState.isSaving}
+                lastSaved={autoSaveState.lastSaved}
+                error={autoSaveState.error}
+                pendingChanges={autoSaveState.pendingChanges}
+                onSaveNow={autoSaveState.saveNow}
+              />
+
+              <div className="flex items-center gap-4">
+                {/* Indicateur de sauvegarde instantanée */}
+                <SaveIndicator
+                  isSaving={saveState.isSaving}
+                  lastSaved={saveState.lastSaved}
+                  error={saveState.error}
+                  pendingChanges={false}
+                  onSaveNow={saveState.saveNow}
+                />
+                <div className="flex gap-3">
+                  <Button onClick={addDay} variant="secondary">
+                    <Plus className="w-4 h-4 mr-2" />
+                     Ajouter un jour
+                  </Button>
+                  <Button onClick={() => {
+                    const url = `${window.location.origin}/client/${itinerary?.client?.id}`;
+                    setShareUrl(url);
+                    setShowShareModal(true);
+                  }}>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Partager
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
