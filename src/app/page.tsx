@@ -3,11 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Map, Plus, Calendar, Trash2, X, MapPin, Edit2 } from 'lucide-react';
 
-const TravelPlannerApp = () => {
-import React, { useState, useEffect } from 'react';
-import { Map, Plus, Calendar, Trash2, X, MapPin, Edit2 } from 'lucide-react';
-
-const TravelPlannerApp = () => {
+export default function TravelPlannerApp() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -17,7 +13,7 @@ const TravelPlannerApp = () => {
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectStartDate, setNewProjectStartDate] = useState('');
   const [newProjectEndDate, setNewProjectEndDate] = useState('');
-
+  
   // Charger les projets au démarrage
   useEffect(() => {
     fetchProjects();
