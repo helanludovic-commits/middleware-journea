@@ -229,7 +229,7 @@ export default function ClientPortalPage() {
 
             {/* Navigation des jours */}
             {days.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-4">
+              <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Navigation</h3>
                 <div className="space-y-2">
                   {days.map((day, index) => (
@@ -269,7 +269,7 @@ export default function ClientPortalPage() {
               if (allFiles.length === 0) return null;
 
               return (
-                <div className="bg-white rounded-xl shadow-lg p-4">
+                <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Documents ({allFiles.length})
                   </h3>
