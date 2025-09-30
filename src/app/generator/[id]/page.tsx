@@ -615,29 +615,6 @@ export default function GeneratorPage() {
       if (error) throw error;
     }
   });
-
-    onSave: async (data) => {
-      // Sauvegarde dans localStorage ET base de données
-      localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
-        ...data,
-        lastSaved: new Date().toISOString()
-      }));
-    
-      // Optionnel : sauvegarder aussi en base de données
-      const { error } = await supabase
-        .from('itineraires')
-        .update({ 
-          contenu: JSON.stringify(data.days),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', itineraryId);
-    
-      if (error) throw error;
-    },
-    onError: (error) => {
-      console.error('Erreur de sauvegarde automatique:', error);
-    }
-  });
   
   useEffect(() => {
     loadItinerary();
