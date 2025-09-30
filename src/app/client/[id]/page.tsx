@@ -11,6 +11,7 @@ interface FileAttachment {
   type: string;
   data: string;
   uploadedAt: string;
+  elementName?: string; // Ajout pour afficher d'où vient le fichier
 }
 
 interface TravelElement {
@@ -250,8 +251,65 @@ export default function ClientPortalPage() {
                 </div>
               </div>
             )}
-          </div>
 
+            {/* NOUVELLE SECTION - Documents */}
+            {days.length > 0 && (() => {
+              // Collecter tous les fichiers de tous les jours
+              const allFiles: FileAttachment[] = [];
+              days.forEach(day => {
+                day.elements.forEach(element => {
+                  if (element.files && element.files.length > 0) {
+                    element.files.forEach(file => {
+                      allFiles.push({ ...file, elementName: element.name });
+                    });
+                  }
+                });
+              });
+
+              if (allFiles.length === 0) return null;
+
+              return (
+                <div className="bg-white rounded-xl shadow-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Documents ({allFiles.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {allFiles.map((file, index) => (
+                      <a
+                        key={`${file.id}-${index}`}
+                        href={file.data}
+                        download={file.name}
+                        className="flex items-center justify-between p-3 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors group"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <span className="text-lg">📎</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">
+                              {file.name}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {(file as any).elementName}
+                            </div>
+                          </div>
+                        </div>
+                        <svg 
+                          className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+            
           {/* Contenu principal - Détails du jour sélectionné */}
           <div className="lg:col-span-3">
             {days.length === 0 ? (
