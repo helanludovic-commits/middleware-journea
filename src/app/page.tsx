@@ -1,449 +1,539 @@
-"use client"
+'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Map, Plus, Calendar, Trash2, X, MapPin, Edit2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Calendar, MapPin, Users, Share2, Trash2, Edit3, Euro, Eye } from 'lucide-react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
-// Définir le type Project
-interface Project {
-  id: number;
-  name: string;
-  description?: string;
-  start_date?: string;
-  end_date?: string;
+interface Itinerary {
+  id: string;
+  titre: string;
+  destination: string;
+  date_debut: string;
+  date_fin: string;
+  nb_voyageurs: number;
+  budget?: number;
+  cout_agence?: number;
+  statut: 'creation' | 'pending_payment' | 'paid';
+  created_at: string;
+  updated_at: string;
 }
 
-export default function TravelPlannerApp() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [showNewProjectModal, setShowNewProjectModal] = useState<boolean>(false);
-  const [showEditProjectModal, setShowEditProjectModal] = useState<boolean>(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [newProjectName, setNewProjectName] = useState<string>('');
-  const [newProjectDescription, setNewProjectDescription] = useState<string>('');
-  const [newProjectStartDate, setNewProjectStartDate] = useState<string>('');
-  const [newProjectEndDate, setNewProjectEndDate] = useState<string>('');
+export default function HomePage() {
+  const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newItinerary, setNewItinerary] = useState({
+    titre: '',
+    destination: '',
+    dateType: 'dates',
+    date_debut: '',
+    date_fin: '',
+    duration: 3,
+    nb_voyageurs: 2,
+    budget: 0,
+    cout_agence: 0
+  });
 
-  // Charger les projets au démarrage
   useEffect(() => {
-    fetchProjects();
+    fetchItineraries();
   }, []);
 
-  const fetchProjects = async () => {
+  const fetchItineraries = async () => {
     try {
-      const response = await fetch('/api/projects');
-      if (!response.ok) throw new Error('Erreur lors du chargement des projets');
-      const data: Project[] = await response.json();
-      setProjects(data);
+      const { data, error } = await supabase
+        .from('itineraires')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setItineraries(data || []);
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Error fetching itineraries:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCreateProject = async () => {
-    if (!newProjectName.trim()) {
-      alert('Veuillez entrer un nom de projet');
-      return;
-    }
-
+  const createItinerary = async () => {
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newProjectName,
-          description: newProjectDescription,
-          start_date: newProjectStartDate,
-          end_date: newProjectEndDate,
-        }),
-      });
+      const itineraryData = {
+        titre: newItinerary.titre,
+        destination: newItinerary.destination,
+        date_debut: newItinerary.dateType === 'dates' 
+          ? newItinerary.date_debut 
+          : new Date().toISOString().split('T')[0],
+        date_fin: newItinerary.dateType === 'dates' 
+          ? newItinerary.date_fin 
+          : new Date(Date.now() + newItinerary.duration * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        nb_voyageurs: newItinerary.nb_voyageurs,
+        budget: newItinerary.budget,
+        cout_agence: newItinerary.cout_agence,
+        statut: 'creation'
+      };
 
-      if (!response.ok) {
-        throw new Error('Erreur lors de la création du projet');
-      }
+      const { data, error } = await supabase
+        .from('itineraires')
+        .insert([itineraryData])
+        .select()
+        .single();
 
-      const data: Project = await response.json();
+      if (error) throw error;
+
+      setItineraries([data, ...itineraries]);
+      setShowCreateModal(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error creating itinerary:', error);
+      alert('Erreur lors de la création de l\'itinéraire');
+    }
+  };
+
+  const resetForm = () => {
+    setNewItinerary({
+      titre: '',
+      destination: '',
+      dateType: 'dates',
+      date_debut: '',
+      date_fin: '',
+      duration: 3,
+      nb_voyageurs: 2,
+      budget: 0,
+      cout_agence: 0
+    });
+  };
+
+  const shareItinerary = async (id: string) => {
+    const shareUrl = `${window.location.origin}/client/${id}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
       
-      setProjects([...projects, data]);
-      setShowNewProjectModal(false);
-      setNewProjectName('');
-      setNewProjectDescription('');
-      setNewProjectStartDate('');
-      setNewProjectEndDate('');
-    } catch (error) {
-      alert((error as Error).message);
-    }
-  };
-
-  const handleEditProject = (project: Project, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingProject(project);
-    setNewProjectName(project.name);
-    setNewProjectDescription(project.description || '');
-    setNewProjectStartDate(project.start_date || '');
-    setNewProjectEndDate(project.end_date || '');
-    setShowEditProjectModal(true);
-  };
-
-  const handleUpdateProject = async () => {
-    if (!newProjectName.trim()) {
-      alert('Veuillez entrer un nom de projet');
-      return;
-    }
-
-    if (!editingProject) return;
-
-    try {
-      const response = await fetch(`/api/projects/${editingProject.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newProjectName,
-          description: newProjectDescription,
-          start_date: newProjectStartDate,
-          end_date: newProjectEndDate,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la modification du projet');
-      }
-
-      const data: Project = await response.json();
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+      notification.textContent = 'Lien copié dans le presse-papiers !';
+      document.body.appendChild(notification);
       
-      setProjects(projects.map(p => p.id === editingProject.id ? data : p));
-      if (selectedProject?.id === editingProject.id) {
-        setSelectedProject(data);
-      }
-      setShowEditProjectModal(false);
-      setEditingProject(null);
-      setNewProjectName('');
-      setNewProjectDescription('');
-      setNewProjectStartDate('');
-      setNewProjectEndDate('');
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
     } catch (error) {
-      alert((error as Error).message);
+      alert(`Lien de partage : ${shareUrl}`);
     }
   };
 
-  const handleDeleteProject = async (projectId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce projet ?')) {
-      return;
-    }
-
+  const deleteItinerary = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet itinéraire ?')) return;
+    
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: 'DELETE',
-      });
+      const { error } = await supabase
+        .from('itineraires')
+        .delete()
+        .eq('id', id);
 
-      if (!response.ok) {
-        throw new Error('Erreur lors de la suppression du projet');
-      }
-
-      setProjects(projects.filter(p => p.id !== projectId));
-      if (selectedProject?.id === projectId) {
-        setSelectedProject(null);
-      }
+      if (error) throw error;
+      setItineraries(itineraries.filter(itin => itin.id !== id));
     } catch (error) {
-      alert((error as Error).message);
+      console.error('Error deleting itinerary:', error);
+      alert('Erreur lors de la suppression');
     }
   };
 
-  // Vue liste des projets
-  if (!selectedProject) {
+  const updateStatus = async (id: string, newStatus: 'creation' | 'pending_payment' | 'paid') => {
+    try {
+      const { error } = await supabase
+        .from('itineraires')
+        .update({ statut: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setItineraries(itineraries.map(itin => 
+        itin.id === id ? { ...itin, statut: newStatus } : itin
+      ));
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Erreur lors de la mise à jour du statut');
+    }
+  };
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'paid': 
+        return { 
+          color: 'text-green-700 bg-green-100 border-green-200', 
+          text: 'Payé'
+        };
+      case 'pending_payment': 
+        return { 
+          color: 'text-orange-700 bg-orange-100 border-orange-200', 
+          text: 'En attente de paiement'
+        };
+      case 'creation':
+      default: 
+        return { 
+          color: 'text-blue-700 bg-blue-100 border-blue-200', 
+          text: 'En cours de création'
+        };
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('fr-FR');
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <Map className="w-8 h-8 text-slate-700" />
-              <h1 className="text-2xl font-bold text-slate-800">Travel Planner</h1>
-            </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement des itinéraires...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Projets de voyage</h1>
+            <p className="mt-2 text-gray-600">Gérez tous vos projets de voyage client</p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nouveau projet
+          </button>
+        </div>
+
+        {itineraries.length === 0 ? (
+          <div className="text-center py-12">
+            <MapPin className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Aucun projet</h3>
+            <p className="text-gray-600 mb-6">Commencez par créer votre premier projet de voyage</p>
             <button
-              onClick={() => setShowNewProjectModal(true)}
-              className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4 mr-2" />
               Créer un projet
             </button>
           </div>
-        </header>
-
-        {/* Liste des projets */}
-        <main className="max-w-7xl mx-auto px-6 py-8">
-          <h2 className="text-3xl font-bold text-slate-800 mb-6">Mes Projets de Voyage</h2>
-          
-          {projects.length === 0 ? (
-            <div className="text-center py-12">
-              <Map className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500 text-lg">Aucun projet pour le moment</p>
-              <p className="text-slate-400 mt-2">Créez votre premier projet de voyage !</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              {projects.map((project, index) => (
-                <div
-                  key={project.id}
-                  className={`p-6 hover:bg-slate-50 transition-colors cursor-pointer ${
-                    index !== projects.length - 1 ? 'border-b border-slate-200' : ''
-                  }`}
-                  onClick={() => setSelectedProject(project)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-slate-800">{project.name}</h3>
-                        {project.description && (
-                          <span className="text-slate-500 text-sm">• {project.description}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {project.start_date ? new Date(project.start_date).toLocaleDateString('fr-FR') : 'Date non définie'}
-                          {project.end_date && ` - ${new Date(project.end_date).toLocaleDateString('fr-FR')}`}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => handleEditProject(project, e)}
-                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="Modifier"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteProject(project.id, e)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </main>
-
-        {/* Modal Nouveau Projet */}
-        {showNewProjectModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-              <h2 className="text-2xl font-bold text-slate-800 mb-6">Nouveau Projet</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Nom du projet *
-                  </label>
-                  <input
-                    type="text"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    placeholder="Ex: Voyage à Paris"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={newProjectDescription}
-                    onChange={(e) => setNewProjectDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    rows={3}
-                    placeholder="Description du projet..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Date de début
-                    </label>
-                    <input
-                      type="date"
-                      value={newProjectStartDate}
-                      onChange={(e) => setNewProjectStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Date de fin
-                    </label>
-                    <input
-                      type="date"
-                      value={newProjectEndDate}
-                      onChange={(e) => setNewProjectEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowNewProjectModal(false);
-                    setNewProjectName('');
-                    setNewProjectDescription('');
-                    setNewProjectStartDate('');
-                    setNewProjectEndDate('');
-                  }}
-                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={handleCreateProject}
-                  className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"
-                >
-                  Créer le projet
-                </button>
-              </div>
+        ) : (
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Projet
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Dates
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Voyageurs
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Budget client
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Coût agence
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {itineraries.map((itinerary) => {
+                    const statusConfig = getStatusConfig(itinerary.statut);
+                    return (
+                      <tr key={itinerary.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{itinerary.titre}</div>
+                            <div className="text-sm text-gray-500 flex items-center">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              {itinerary.destination}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 flex items-center">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {formatDate(itinerary.date_debut)} - {formatDate(itinerary.date_fin)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 flex items-center">
+                            <Users className="w-3 h-3 mr-1" />
+                            {itinerary.nb_voyageurs}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 flex items-center">
+                            <Euro className="w-3 h-3 mr-1" />
+                            {itinerary.budget ? `${itinerary.budget.toLocaleString()} €` : 'Non défini'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 flex items-center">
+                            <Euro className="w-3 h-3 mr-1" />
+                            {itinerary.cout_agence ? `${itinerary.cout_agence.toLocaleString()} €` : 'Non défini'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={itinerary.statut}
+                            onChange={(e) => updateStatus(itinerary.id, e.target.value as any)}
+                            className={`text-xs px-2 py-1 rounded-full border ${statusConfig.color} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          >
+                            <option value="creation">En cours de création</option>
+                            <option value="pending_payment">En attente de paiement</option>
+                            <option value="paid">Payé</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end gap-2">
+                            <Link 
+                              href={`/generator/${itinerary.id}`}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Modifier"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </Link>
+                            <button
+                              onClick={() => window.open(`/client/${itinerary.id}`, '_blank')}
+                              className="text-purple-600 hover:text-purple-900"
+                              title="Aperçu"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => shareItinerary(itinerary.id)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Partager"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteItinerary(itinerary.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* Modal Modifier Projet */}
-        {showEditProjectModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-              <h2 className="text-2xl font-bold text-slate-800 mb-6">Modifier le Projet</h2>
+        {/* Modal de création */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowCreateModal(false)}></div>
               
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Nom du projet *
-                  </label>
-                  <input
-                    type="text"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    placeholder="Ex: Voyage à Paris"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={newProjectDescription}
-                    onChange={(e) => setNewProjectDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    rows={3}
-                    placeholder="Description du projet..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Date de début
-                    </label>
-                    <input
-                      type="date"
-                      value={newProjectStartDate}
-                      onChange={(e) => setNewProjectStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    />
-                  </div>
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-6">Créer un nouvel itinéraire</h3>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Date de fin
-                    </label>
-                    <input
-                      type="date"
-                      value={newProjectEndDate}
-                      onChange={(e) => setNewProjectEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet</label>
+                      <input
+                        type="text"
+                        value={newItinerary.titre}
+                        onChange={(e) => setNewItinerary({ ...newItinerary, titre: e.target.value })}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ex: Voyage à Paris"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                      <input
+                        type="text"
+                        value={newItinerary.destination}
+                        onChange={(e) => setNewItinerary({ ...newItinerary, destination: e.target.value })}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ex: Paris, France"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Planification temporelle</label>
+                      <div className="space-y-3">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="dateType"
+                            value="dates"
+                            checked={newItinerary.dateType === 'dates'}
+                            onChange={(e) => setNewItinerary({ ...newItinerary, dateType: e.target.value as 'dates' | 'duration' })}
+                            className="mr-2"
+                          />
+                          Dates précises (aller/retour)
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="dateType"
+                            value="duration"
+                            checked={newItinerary.dateType === 'duration'}
+                            onChange={(e) => setNewItinerary({ ...newItinerary, dateType: e.target.value as 'dates' | 'duration' })}
+                            className="mr-2"
+                          />
+                          Nombre de jours
+                        </label>
+                      </div>
+                    </div>
+
+                    {newItinerary.dateType === 'dates' ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+                          <input
+                            type="date"
+                            value={newItinerary.date_debut}
+                            onChange={(e) => setNewItinerary({ ...newItinerary, date_debut: e.target.value })}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+                          <input
+                            type="date"
+                            value={newItinerary.date_fin}
+                            onChange={(e) => setNewItinerary({ ...newItinerary, date_fin: e.target.value })}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de jours</label>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setNewItinerary({ ...newItinerary, duration: Math.max(1, newItinerary.duration - 1) })}
+                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={newItinerary.duration}
+                            onChange={(e) => setNewItinerary({ ...newItinerary, duration: parseInt(e.target.value) || 1 })}
+                            className="w-20 text-center border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setNewItinerary({ ...newItinerary, duration: newItinerary.duration + 1 })}
+                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                          >
+                            +
+                          </button>
+                          <span className="text-sm text-gray-500">jour{newItinerary.duration > 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de voyageurs</label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setNewItinerary({ ...newItinerary, nb_voyageurs: Math.max(1, newItinerary.nb_voyageurs - 1) })}
+                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={newItinerary.nb_voyageurs}
+                          onChange={(e) => setNewItinerary({ ...newItinerary, nb_voyageurs: parseInt(e.target.value) || 1 })}
+                          className="w-20 text-center border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setNewItinerary({ ...newItinerary, nb_voyageurs: newItinerary.nb_voyageurs + 1 })}
+                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                        >
+                          +
+                        </button>
+                        <span className="text-sm text-gray-500">personne{newItinerary.nb_voyageurs > 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Budget du voyageur (€)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={newItinerary.budget}
+                          onChange={(e) => setNewItinerary({ ...newItinerary, budget: parseInt(e.target.value) || 0 })}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Coût pour l'agence (€)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="50"
+                          value={newItinerary.cout_agence}
+                          onChange={(e) => setNewItinerary({ ...newItinerary, cout_agence: parseInt(e.target.value) || 0 })}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowEditProjectModal(false);
-                    setEditingProject(null);
-                    setNewProjectName('');
-                    setNewProjectDescription('');
-                    setNewProjectStartDate('');
-                    setNewProjectEndDate('');
-                  }}
-                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={handleUpdateProject}
-                  className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"
-                >
-                  Enregistrer
-                </button>
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button
+                    onClick={createItinerary}
+                    disabled={!newItinerary.titre || !newItinerary.destination || (newItinerary.dateType === 'dates' && (!newItinerary.date_debut || !newItinerary.date_fin))}
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Créer le projet
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      resetForm();
+                    }}
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  >
+                    Annuler
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
-    );
-  }
-
-  // Vue détail du projet
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-white shadow-sm border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSelectedProject(null)}
-              className="text-slate-600 hover:text-slate-800"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <h1 className="text-2xl font-bold text-slate-800">{selectedProject.name}</h1>
-          </div>
-          <button
-            onClick={(e) => {
-              handleEditProject(selectedProject, e);
-            }}
-            className="flex items-center gap-2 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            <Edit2 className="w-4 h-4" />
-            Modifier
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <p className="text-slate-600">{selectedProject.description || 'Aucune description'}</p>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mt-4">
-            <Calendar className="w-4 h-4" />
-            <span>
-              {selectedProject.start_date ? new Date(selectedProject.start_date).toLocaleDateString('fr-FR') : 'Date non définie'}
-              {selectedProject.end_date && ` - ${new Date(selectedProject.end_date).toLocaleDateString('fr-FR')}`}
-            </span>
-          </div>
-          <p className="text-slate-500 mt-6">Fonctionnalité des itinéraires à venir...</p>
-        </div>
-      </main>
     </div>
   );
 }
