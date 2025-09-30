@@ -35,6 +35,7 @@ interface ItineraryData {
   titre: string;
   days: Day[];
   client?: any;
+  status?: 'creation' | 'pending_payment' | 'paid';
 }
 
 interface FieldConfig {
