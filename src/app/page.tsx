@@ -437,5 +437,3 @@ export default function TravelPlannerApp() {
     </div>
   );
 };
-
-export default TravelPlannerApp;
