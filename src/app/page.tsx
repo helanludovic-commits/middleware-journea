@@ -3,17 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import { Map, Plus, Calendar, Trash2, X, MapPin, Edit2 } from 'lucide-react';
 
+// Définir le type Project
+interface Project {
+  id: number;
+  name: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
 export default function TravelPlannerApp() {
-  const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
-  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
-  const [showEditProjectModal, setShowEditProjectModal] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDescription, setNewProjectDescription] = useState('');
-  const [newProjectStartDate, setNewProjectStartDate] = useState('');
-  const [newProjectEndDate, setNewProjectEndDate] = useState('');
-  
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showNewProjectModal, setShowNewProjectModal] = useState<boolean>(false);
+  const [showEditProjectModal, setShowEditProjectModal] = useState<boolean>(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [newProjectName, setNewProjectName] = useState<string>('');
+  const [newProjectDescription, setNewProjectDescription] = useState<string>('');
+  const [newProjectStartDate, setNewProjectStartDate] = useState<string>('');
+  const [newProjectEndDate, setNewProjectEndDate] = useState<string>('');
+
   // Charger les projets au démarrage
   useEffect(() => {
     fetchProjects();
@@ -23,7 +32,7 @@ export default function TravelPlannerApp() {
     try {
       const response = await fetch('/api/projects');
       if (!response.ok) throw new Error('Erreur lors du chargement des projets');
-      const data = await response.json();
+      const data: Project[] = await response.json();
       setProjects(data);
     } catch (error) {
       console.error('Erreur:', error);
@@ -54,7 +63,7 @@ export default function TravelPlannerApp() {
         throw new Error('Erreur lors de la création du projet');
       }
 
-      const data = await response.json();
+      const data: Project = await response.json();
       
       setProjects([...projects, data]);
       setShowNewProjectModal(false);
@@ -63,11 +72,11 @@ export default function TravelPlannerApp() {
       setNewProjectStartDate('');
       setNewProjectEndDate('');
     } catch (error) {
-      alert(error.message);
+      alert((error as Error).message);
     }
   };
 
-  const handleEditProject = (project, e) => {
+  const handleEditProject = (project: Project, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingProject(project);
     setNewProjectName(project.name);
@@ -82,6 +91,8 @@ export default function TravelPlannerApp() {
       alert('Veuillez entrer un nom de projet');
       return;
     }
+
+    if (!editingProject) return;
 
     try {
       const response = await fetch(`/api/projects/${editingProject.id}`, {
@@ -101,7 +112,7 @@ export default function TravelPlannerApp() {
         throw new Error('Erreur lors de la modification du projet');
       }
 
-      const data = await response.json();
+      const data: Project = await response.json();
       
       setProjects(projects.map(p => p.id === editingProject.id ? data : p));
       if (selectedProject?.id === editingProject.id) {
@@ -114,11 +125,11 @@ export default function TravelPlannerApp() {
       setNewProjectStartDate('');
       setNewProjectEndDate('');
     } catch (error) {
-      alert(error.message);
+      alert((error as Error).message);
     }
   };
 
-  const handleDeleteProject = async (projectId, e) => {
+  const handleDeleteProject = async (projectId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce projet ?')) {
       return;
@@ -138,7 +149,7 @@ export default function TravelPlannerApp() {
         setSelectedProject(null);
       }
     } catch (error) {
-      alert(error.message);
+      alert((error as Error).message);
     }
   };
 
@@ -250,7 +261,7 @@ export default function TravelPlannerApp() {
                     value={newProjectDescription}
                     onChange={(e) => setNewProjectDescription(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    rows="3"
+                    rows={3}
                     placeholder="Description du projet..."
                   />
                 </div>
@@ -334,7 +345,7 @@ export default function TravelPlannerApp() {
                     value={newProjectDescription}
                     onChange={(e) => setNewProjectDescription(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                    rows="3"
+                    rows={3}
                     placeholder="Description du projet..."
                   />
                 </div>
@@ -410,7 +421,6 @@ export default function TravelPlannerApp() {
           </div>
           <button
             onClick={(e) => {
-              e.stopPropagation();
               handleEditProject(selectedProject, e);
             }}
             className="flex items-center gap-2 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
@@ -436,4 +446,4 @@ export default function TravelPlannerApp() {
       </main>
     </div>
   );
-};
+}
