@@ -35,7 +35,6 @@ interface ItineraryData {
   titre: string;
   days: Day[];
   client?: any;
-  status?: 'creation' | 'pending_payment' | 'paid';
 }
 
 interface FieldConfig {
@@ -826,36 +825,7 @@ export default function GeneratorPage() {
                   <Calendar className="w-6 h-6 text-blue-600" />
                   {itinerary.titre}
                 </h1>
-                <div className="flex items-center gap-3 mt-1">
-                  <p className="text-gray-600">Client: {itinerary.client?.nom}</p>
-            
-                  {/* Sélecteur de statut */}
-                  <select
-                    value={itinerary.status || 'creation'}
-                    onChange={async (e) => {
-                      const newStatus = e.target.value as 'creation' | 'pending_payment' | 'paid';
-                      try {
-                        const { error } = await supabase
-                          .from('itineraires')
-                          .update({ status: newStatus })
-                          .eq('id', itineraryId);
-                  
-                        if (error) throw error;
-                  
-                        setItinerary({ ...itinerary, status: newStatus });
-                        console.log('✅ Statut mis à jour');
-                      } catch (error) {
-                        console.error('Erreur mise à jour statut:', error);
-                        alert('Erreur lors de la mise à jour du statut');
-                      }
-                    }}
-                    className="text-sm px-3 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="creation">🔵 En cours de création</option>
-                    <option value="pending_payment">🟠 En attente de paiement</option>
-                    <option value="paid">🟢 Payé</option>
-                  </select>
-                </div>
+                <p className="text-gray-600">Client: {itinerary.client?.nom}</p>
               </div>
             </div>
       
