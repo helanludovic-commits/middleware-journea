@@ -334,7 +334,7 @@ export default function ClientPortalPage() {
                                 <div className="text-sm font-medium text-gray-700 mb-2">Documents joints:</div>
                                 <div className="flex flex-wrap gap-2">
                                   {element.files.map(file => (
-                                    
+                                    <a
                                       key={file.id}
                                       href={file.data}
                                       download={file.name}
