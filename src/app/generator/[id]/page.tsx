@@ -616,9 +616,6 @@ export default function GeneratorPage() {
     }
   });
 
-  // Sauvegarde INSTANTANÉE
-  const saveState = useInstantSave({ ...itinerary, days }, {
-    enabled: !!itinerary && !loading,
     onSave: async (data) => {
       // Sauvegarde dans localStorage ET base de données
       localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
@@ -803,11 +800,11 @@ export default function GeneratorPage() {
             <div className="flex items-center gap-4">
               {/* Indicateur de sauvegarde */}
               <SaveIndicator
-                isSaving={autoSaveState.isSaving}
-                lastSaved={autoSaveState.lastSaved}
-                error={autoSaveState.error}
-                pendingChanges={autoSaveState.pendingChanges}
-                onSaveNow={autoSaveState.saveNow}
+                isSaving={saveState.isSaving}
+                lastSaved={saveState.lastSaved}
+                error={saveState.error}
+                pendingChanges={false}
+                onSaveNow={saveState.saveNow}
               />
 
               <div className="flex items-center gap-4">
