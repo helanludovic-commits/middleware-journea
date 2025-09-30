@@ -616,11 +616,9 @@ export default function GeneratorPage() {
     }
   });
 
-  // Configuration de la sauvegarde automatique
-  const autoSaveState = useAutoSave({ ...itinerary, days }, {
-    delay: 2000, // 2 secondes d'attente après la dernière modification
-    maxWait: 10000, // Sauvegarde forcée après 10 secondes max
-    enabled: !!itinerary && !loading, // Activer seulement si l'itinéraire est chargé
+  // Sauvegarde INSTANTANÉE
+  const saveState = useInstantSave({ ...itinerary, days }, {
+    enabled: !!itinerary && !loading,
     onSave: async (data) => {
       // Sauvegarde dans localStorage ET base de données
       localStorage.setItem(`itinerary-${itineraryId}`, JSON.stringify({
