@@ -874,7 +874,7 @@ export default function GeneratorPage() {
                   Ajouter un jour
                 </Button>
                 <Button onClick={() => {
-                  const url = `${window.location.origin}/client/${itinerary?.client?.id}`;
+                  const url = `${window.location.origin}/client/${itineraryId}`;
                   setShareUrl(url);
                   setShowShareModal(true);
                 }}>
