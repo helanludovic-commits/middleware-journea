@@ -842,7 +842,7 @@ export default function GeneratorPage() {
                     </>
                   )}
                 </Button>
-                
+
                 <div className="flex gap-3">
                   <Button onClick={addDay} variant="secondary">
                     <Plus className="w-4 h-4 mr-2" />
@@ -860,50 +860,50 @@ export default function GeneratorPage() {
               </div>
             </div>
           </div>
-        </div>
       </header>
 
       {/* Contenu principal */}
-<main className="max-w-7xl mx-auto p-6">
-  <div className="flex gap-6 overflow-x-auto pb-6">
-    {days.map((day, index) => (
-      <DraggableDay
-        key={day.id}
-        day={day}
-        index={index}
-        onAddElement={openAddElement}
-        onDeleteDay={deleteDay}
-        onEditElement={(element) => {
-          const dayId = days.find(day => 
-            day.elements.some(el => el.id === element.id)
-          )?.id;
+      <main className="max-w-7xl mx-auto p-6">
+        <div className="flex gap-6 overflow-x-auto pb-6">
+          {days.map((day, index) => (
+            <DraggableDay
+              key={day.id}
+              day={day}
+              index={index}
+              onAddElement={openAddElement}
+              onDeleteDay={deleteDay}
+              onEditElement={(element) => {
+                const dayId = days.find(day => 
+                  day.elements.some(el => el.id === element.id)
+                )?.id;
           
-          if (dayId) {
-            setCurrentDayId(dayId);
-            setEditingElement(element);
-            setSelectedElementType(element.type);
-            setShowFormModal(true);
-          }
-        }}
-        onDeleteElement={(dayId, elementId) => {
-          if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
-            setDays(days => days.map(day => {
-              if (day.id === dayId) {
-                return {
-                  ...day,
-                  elements: day.elements.filter(el => el.id !== elementId)
-                };
-              }
-              return day;
-            }));
-          }
-        }}
-        onMoveDay={moveDay}
-        onDropElement={dropElement}
-        onReorderElements={reorderElements}
-      />
-    ))}
-  </div>
+                if (dayId) {
+                  setCurrentDayId(dayId);
+                  setEditingElement(element);
+                  setSelectedElementType(element.type);
+                  setShowFormModal(true);
+                }
+              }}
+              onDeleteElement={(dayId, elementId) => {
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+                  setDays(days => days.map(day => {
+                    if (day.id === dayId) {
+                      return {
+                        ...day,
+                        elements: day.elements.filter(el => el.id !== elementId)
+                      };
+                    }
+                    return day;
+                  }));
+                }
+              }}
+              onMoveDay={moveDay}
+              onDropElement={dropElement}
+              onReorderElements={reorderElements}
+            />
+          ))}
+        </div>
+      </main>
   
   {/* Modal de partage */}
 {showShareModal && (
