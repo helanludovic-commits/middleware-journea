@@ -593,7 +593,7 @@ export default function GeneratorPage() {
   const [currentDayId, setCurrentDayId] = useState<string | null>(null);
   const [editingElement, setEditingElement] = useState<TravelElement | null>(null);
   
-  // Sauvegarde INSTANTANÉE
+  // États de sauvegarde
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -822,44 +822,44 @@ export default function GeneratorPage() {
                     Modifications non sauvegardées
                   </div>
                 )}
-                </div>
+              </div>
 
-                <Button 
-                  onClick={saveItinerary}
-                  disabled={isSaving || !hasUnsavedChanges}
-                  variant={hasUnsavedChanges ? "default" : "outline"}
-                  className={hasUnsavedChanges ? "animate-pulse" : ""}
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                      Sauvegarde...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Sauvegarder
-                    </>
-                  )}
+              <Button 
+                onClick={saveItinerary}
+                disabled={isSaving || !hasUnsavedChanges}
+                variant={hasUnsavedChanges ? "primary" : "outline"}
+                className={hasUnsavedChanges ? "animate-pulse" : ""}
+              >
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Sauvegarde...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Sauvegarder
+                  </>
+                )}
+              </Button>
+
+              <div className="flex gap-3">
+                <Button onClick={addDay} variant="secondary">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajouter un jour
                 </Button>
-
-                <div className="flex gap-3">
-                  <Button onClick={addDay} variant="secondary">
-                    <Plus className="w-4 h-4 mr-2" />
-                     Ajouter un jour
-                  </Button>
-                  <Button onClick={() => {
-                    const url = `${window.location.origin}/client/${itinerary?.client?.id}`;
-                    setShareUrl(url);
-                    setShowShareModal(true);
-                  }}>
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Partager
-                  </Button>
-                </div>
+                <Button onClick={() => {
+                  const url = `${window.location.origin}/client/${itinerary?.client?.id}`;
+                  setShareUrl(url);
+                  setShowShareModal(true);
+                }}>
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Partager
+                </Button>
               </div>
             </div>
           </div>
+        </div>
       </header>
 
       {/* Contenu principal */}
@@ -907,121 +907,120 @@ export default function GeneratorPage() {
   
       {/* Modal de partage */}
       {showShareModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg p-6 w-full max-w-md">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold">Partager l'itinéraire</h3>
-        <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600">
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Lien de partage client
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={shareUrl}
-              readOnly
-              className="flex-1 p-2 border border-gray-300 rounded-md bg-gray-50"
-            />
-            <Button
-              onClick={() => {
-                navigator.clipboard.writeText(shareUrl);
-                alert('Lien copié !');
-              }}
-              variant="outline"
-            >
-              Copier
-            </Button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold">Partager l'itinéraire</h3>
+              <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lien de partage client
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1 p-2 border border-gray-300 rounded-md bg-gray-50"
+                  />
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareUrl);
+                      alert('Lien copié !');
+                    }}
+                    variant="outline"
+                  >
+                    Copier
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => window.open(shareUrl, '_blank')}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Aperçu client
+                </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await fetch('/api/ghl-update-opportunity', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          itineraryId: itinerary?.id,
+                          clientId: itinerary?.client?.id,
+                          shareUrl: shareUrl
+                        })
+                      });
+                      alert('Lien envoyé au client et ajouté à GHL !');
+                      setShowShareModal(false);
+                    } catch (error) {
+                      console.error('Erreur GHL:', error);
+                      alert('Lien copié, mais erreur de synchronisation GHL');
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  Envoyer au client
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-        
-        <div className="flex gap-3">
-          <Button
-            onClick={() => window.open(shareUrl, '_blank')}
-            variant="outline"
-            className="flex-1"
-          >
-            Aperçu client
-          </Button>
-          <Button
-            onClick={async () => {
-              // Envoi du lien vers GHL
-              try {
-                await fetch('/api/ghl-update-opportunity', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    itineraryId: itinerary?.id,
-                    clientId: itinerary?.client?.id,
-                    shareUrl: shareUrl
-                  })
-                });
-                alert('Lien envoyé au client et ajouté à GHL !');
-                setShowShareModal(false);
-              } catch (error) {
-                console.error('Erreur GHL:', error);
-                alert('Lien copié, mais erreur de synchronisation GHL');
+      )}
+
+      {/* Modales */}
+      <TypeSelectionModal
+        isOpen={showTypeModal}
+        onClose={() => setShowTypeModal(false)}
+        onSelect={selectElementType}
+      />
+
+      <ElementFormModal
+        isOpen={showFormModal}
+        onClose={() => setShowFormModal(false)}
+        onSave={(elementData) => {
+          if (!currentDayId) return;
+
+          const newElement: TravelElement = {
+            id: editingElement?.id || `element-${Date.now()}`,
+            type: elementData.type,
+            name: elementData.name,
+            details: elementData.details,
+            files: elementData.files || []
+          };
+
+          setDays(days => days.map(day => {
+            if (day.id === currentDayId) {
+              if (editingElement) {
+                return {
+                  ...day,
+                  elements: day.elements.map(el => 
+                    el.id === editingElement.id ? newElement : el
+                  )
+                };
+              } else {
+                return {
+                  ...day,
+                  elements: [...day.elements, newElement]
+                };
               }
-            }}
-            className="flex-1"
-          >
-            Envoyer au client
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+            }
+            return day;
+          }));
 
-{/* Modales */}
-<TypeSelectionModal
-  isOpen={showTypeModal}
-  onClose={() => setShowTypeModal(false)}
-  onSelect={selectElementType}
-/>
-
-<ElementFormModal
-  isOpen={showFormModal}
-  onClose={() => setShowFormModal(false)}
-  onSave={(elementData) => {
-    if (!currentDayId) return;
-
-    const newElement: TravelElement = {
-      id: editingElement?.id || `element-${Date.now()}`,
-      type: elementData.type,
-      name: elementData.name,
-      details: elementData.details,
-      files: elementData.files || []
-    };
-
-    setDays(days => days.map(day => {
-      if (day.id === currentDayId) {
-        if (editingElement) {
-          return {
-            ...day,
-            elements: day.elements.map(el => 
-              el.id === editingElement.id ? newElement : el
-            )
-          };
-        } else {
-          return {
-            ...day,
-            elements: [...day.elements, newElement]
-          };
-        }
-      }
-      return day;
-    }));
-
-    setEditingElement(null);
-    setCurrentDayId(null);
-  }}
-  elementType={selectedElementType}
+          setEditingElement(null);
+          setCurrentDayId(null);
+        }}
+        elementType={selectedElementType}
         initialData={editingElement || undefined}
       />
     </div>
