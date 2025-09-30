@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, MapPin, Users, Share2, Trash2, Edit3, Euro, Eye } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 interface Itinerary {
@@ -20,6 +21,7 @@ interface Itinerary {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -83,6 +85,9 @@ export default function HomePage() {
       setItineraries([data, ...itineraries]);
       setShowCreateModal(false);
       resetForm();
+      
+      // Redirection vers le générateur
+      router.push(`/generator/${data.id}`);
     } catch (error) {
       console.error('Error creating itinerary:', error);
       alert('Erreur lors de la création de l\'itinéraire');
@@ -161,49 +166,49 @@ export default function HomePage() {
     switch (status) {
       case 'paid': 
         return { 
-          color: 'text-green-700 bg-green-100 border-green-200', 
+          color: 'text-emerald-700 bg-emerald-50 border-emerald-200', 
           text: 'Payé'
         };
       case 'pending_payment': 
         return { 
-          color: 'text-orange-700 bg-orange-100 border-orange-200', 
+          color: 'text-amber-700 bg-amber-50 border-amber-200', 
           text: 'En attente de paiement'
         };
       case 'creation':
       default: 
         return { 
-          color: 'text-blue-700 bg-blue-100 border-blue-200', 
+          color: 'text-sky-700 bg-sky-50 border-sky-200', 
           text: 'En cours de création'
         };
     }
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('fr-FR');
+    return new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement des itinéraires...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-700 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Chargement des itinéraires...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Projets de voyage</h1>
-            <p className="mt-2 text-gray-600">Gérez tous vos projets de voyage client</p>
+            <h1 className="text-3xl font-bold text-slate-800">Projets de voyage</h1>
+            <p className="mt-2 text-slate-600">Gérez tous vos projets de voyage client</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-slate-700 hover:bg-slate-800 transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
             Nouveau projet
@@ -211,134 +216,123 @@ export default function HomePage() {
         </div>
 
         {itineraries.length === 0 ? (
-          <div className="text-center py-12">
-            <MapPin className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">Aucun projet</h3>
-            <p className="text-gray-600 mb-6">Commencez par créer votre premier projet de voyage</p>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 text-center py-16">
+            <MapPin className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+            <h3 className="text-xl font-medium text-slate-800 mb-2">Aucun projet</h3>
+            <p className="text-slate-600 mb-6">Commencez par créer votre premier projet de voyage</p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-slate-700 hover:bg-slate-800 transition-colors"
             >
               <Plus className="w-4 h-4 mr-2" />
               Créer un projet
             </button>
           </div>
         ) : (
-          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Projet
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Dates
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Voyageurs
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Budget client
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Coût agence
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Statut
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {itineraries.map((itinerary) => {
-                    const statusConfig = getStatusConfig(itinerary.statut);
-                    return (
-                      <tr key={itinerary.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{itinerary.titre}</div>
-                            <div className="text-sm text-gray-500 flex items-center">
-                              <MapPin className="w-3 h-3 mr-1" />
-                              {itinerary.destination}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 flex items-center">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            {formatDate(itinerary.date_debut)} - {formatDate(itinerary.date_fin)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 flex items-center">
-                            <Users className="w-3 h-3 mr-1" />
-                            {itinerary.nb_voyageurs}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 flex items-center">
-                            <Euro className="w-3 h-3 mr-1" />
-                            {itinerary.budget ? `${itinerary.budget.toLocaleString()} €` : 'Non défini'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 flex items-center">
-                            <Euro className="w-3 h-3 mr-1" />
-                            {itinerary.cout_agence ? `${itinerary.cout_agence.toLocaleString()} €` : 'Non défini'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <select
-                            value={itinerary.statut}
-                            onChange={(e) => updateStatus(itinerary.id, e.target.value as any)}
-                            className={`text-xs px-2 py-1 rounded-full border ${statusConfig.color} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                          >
-                            <option value="creation">En cours de création</option>
-                            <option value="pending_payment">En attente de paiement</option>
-                            <option value="paid">Payé</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end gap-2">
-                            <Link 
-                              href={`/generator/${itinerary.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Modifier"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </Link>
-                            <button
-                              onClick={() => window.open(`/client/${itinerary.id}`, '_blank')}
-                              className="text-purple-600 hover:text-purple-900"
-                              title="Aperçu"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => shareItinerary(itinerary.id)}
-                              className="text-green-600 hover:text-green-900"
-                              title="Partager"
-                            >
-                              <Share2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteItinerary(itinerary.id)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {itineraries.map((itinerary, index) => {
+              const statusConfig = getStatusConfig(itinerary.statut);
+              return (
+                <div 
+                  key={itinerary.id} 
+                  className={`p-6 hover:bg-slate-50 transition-colors ${
+                    index !== itineraries.length - 1 ? 'border-b border-slate-200' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-6">
+                    {/* Projet */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-slate-800 truncate">{itinerary.titre}</h3>
+                      <div className="flex items-center text-sm text-slate-500 mt-1">
+                        <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+                        <span className="truncate">{itinerary.destination}</span>
+                      </div>
+                    </div>
+
+                    {/* Dates */}
+                    <div className="hidden md:flex items-center text-sm text-slate-600 min-w-[200px]">
+                      <Calendar className="w-4 h-4 mr-2 flex-shrink-0 text-slate-400" />
+                      <span className="truncate">
+                        {formatDate(itinerary.date_debut)} - {formatDate(itinerary.date_fin)}
+                      </span>
+                    </div>
+
+                    {/* Voyageurs */}
+                    <div className="hidden lg:flex items-center text-sm text-slate-600 min-w-[80px]">
+                      <Users className="w-4 h-4 mr-2 flex-shrink-0 text-slate-400" />
+                      <span>{itinerary.nb_voyageurs}</span>
+                    </div>
+
+                    {/* Budget */}
+                    <div className="hidden xl:flex flex-col min-w-[120px]">
+                      <div className="flex items-center text-sm text-slate-600">
+                        <Euro className="w-4 h-4 mr-1 flex-shrink-0 text-slate-400" />
+                        <span className="font-medium">
+                          {itinerary.budget ? `${itinerary.budget.toLocaleString()} €` : '-'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 ml-5">Client</div>
+                    </div>
+
+                    {/* Coût agence */}
+                    <div className="hidden xl:flex flex-col min-w-[120px]">
+                      <div className="flex items-center text-sm text-slate-600">
+                        <Euro className="w-4 h-4 mr-1 flex-shrink-0 text-slate-400" />
+                        <span className="font-medium">
+                          {itinerary.cout_agence ? `${itinerary.cout_agence.toLocaleString()} €` : '-'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 ml-5">Agence</div>
+                    </div>
+
+                    {/* Statut */}
+                    <div className="min-w-[180px]">
+                      <select
+                        value={itinerary.statut}
+                        onChange={(e) => updateStatus(itinerary.id, e.target.value as any)}
+                        className={`text-xs px-3 py-1.5 rounded-full border font-medium ${statusConfig.color} focus:outline-none focus:ring-2 focus:ring-slate-400 w-full cursor-pointer`}
+                      >
+                        <option value="creation">En cours de création</option>
+                        <option value="pending_payment">En attente de paiement</option>
+                        <option value="paid">Payé</option>
+                      </select>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1">
+                      <Link 
+                        href={`/generator/${itinerary.id}`}
+                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                        title="Modifier"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </Link>
+                      <button
+                        onClick={() => window.open(`/client/${itinerary.id}`, '_blank')}
+                        className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        title="Aperçu"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => shareItinerary(itinerary.id)}
+                        className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Partager"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteItinerary(itinerary.id)}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -346,59 +340,59 @@ export default function HomePage() {
         {showCreateModal && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowCreateModal(false)}></div>
+              <div className="fixed inset-0 bg-slate-900 bg-opacity-50 transition-opacity" onClick={() => setShowCreateModal(false)}></div>
               
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-6">Créer un nouvel itinéraire</h3>
+              <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div className="bg-white px-6 pt-6 pb-4">
+                  <h3 className="text-xl font-bold text-slate-800 mb-6">Créer un nouvel itinéraire</h3>
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Nom du projet</label>
                       <input
                         type="text"
                         value={newItinerary.titre}
                         onChange={(e) => setNewItinerary({ ...newItinerary, titre: e.target.value })}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                         placeholder="Ex: Voyage à Paris"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Destination</label>
                       <input
                         type="text"
                         value={newItinerary.destination}
                         onChange={(e) => setNewItinerary({ ...newItinerary, destination: e.target.value })}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                         placeholder="Ex: Paris, France"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">Planification temporelle</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-3">Planification temporelle</label>
                       <div className="space-y-3">
-                        <label className="flex items-center">
+                        <label className="flex items-center cursor-pointer">
                           <input
                             type="radio"
                             name="dateType"
                             value="dates"
                             checked={newItinerary.dateType === 'dates'}
                             onChange={(e) => setNewItinerary({ ...newItinerary, dateType: e.target.value as 'dates' | 'duration' })}
-                            className="mr-2"
+                            className="mr-2 text-slate-700 focus:ring-slate-500"
                           />
-                          Dates précises (aller/retour)
+                          <span className="text-sm text-slate-700">Dates précises (aller/retour)</span>
                         </label>
-                        <label className="flex items-center">
+                        <label className="flex items-center cursor-pointer">
                           <input
                             type="radio"
                             name="dateType"
                             value="duration"
                             checked={newItinerary.dateType === 'duration'}
                             onChange={(e) => setNewItinerary({ ...newItinerary, dateType: e.target.value as 'dates' | 'duration' })}
-                            className="mr-2"
+                            className="mr-2 text-slate-700 focus:ring-slate-500"
                           />
-                          Nombre de jours
+                          <span className="text-sm text-slate-700">Nombre de jours</span>
                         </label>
                       </div>
                     </div>
@@ -406,32 +400,32 @@ export default function HomePage() {
                     {newItinerary.dateType === 'dates' ? (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Date de début</label>
                           <input
                             type="date"
                             value={newItinerary.date_debut}
                             onChange={(e) => setNewItinerary({ ...newItinerary, date_debut: e.target.value })}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Date de fin</label>
                           <input
                             type="date"
                             value={newItinerary.date_fin}
                             onChange={(e) => setNewItinerary({ ...newItinerary, date_fin: e.target.value })}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                           />
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de jours</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de jours</label>
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => setNewItinerary({ ...newItinerary, duration: Math.max(1, newItinerary.duration - 1) })}
-                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                            className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center hover:bg-slate-50 transition-colors"
                           >
                             -
                           </button>
@@ -440,27 +434,27 @@ export default function HomePage() {
                             min="1"
                             value={newItinerary.duration}
                             onChange={(e) => setNewItinerary({ ...newItinerary, duration: parseInt(e.target.value) || 1 })}
-                            className="w-20 text-center border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-20 text-center border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                           />
                           <button
                             type="button"
                             onClick={() => setNewItinerary({ ...newItinerary, duration: newItinerary.duration + 1 })}
-                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                            className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center hover:bg-slate-50 transition-colors"
                           >
                             +
                           </button>
-                          <span className="text-sm text-gray-500">jour{newItinerary.duration > 1 ? 's' : ''}</span>
+                          <span className="text-sm text-slate-500">jour{newItinerary.duration > 1 ? 's' : ''}</span>
                         </div>
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de voyageurs</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de voyageurs</label>
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
                           onClick={() => setNewItinerary({ ...newItinerary, nb_voyageurs: Math.max(1, newItinerary.nb_voyageurs - 1) })}
-                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                          className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center hover:bg-slate-50 transition-colors"
                         >
                           -
                         </button>
@@ -469,41 +463,41 @@ export default function HomePage() {
                           min="1"
                           value={newItinerary.nb_voyageurs}
                           onChange={(e) => setNewItinerary({ ...newItinerary, nb_voyageurs: parseInt(e.target.value) || 1 })}
-                          className="w-20 text-center border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-20 text-center border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                         />
                         <button
                           type="button"
                           onClick={() => setNewItinerary({ ...newItinerary, nb_voyageurs: newItinerary.nb_voyageurs + 1 })}
-                          className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                          className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center hover:bg-slate-50 transition-colors"
                         >
                           +
                         </button>
-                        <span className="text-sm text-gray-500">personne{newItinerary.nb_voyageurs > 1 ? 's' : ''}</span>
+                        <span className="text-sm text-slate-500">personne{newItinerary.nb_voyageurs > 1 ? 's' : ''}</span>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Budget du voyageur (€)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Budget du voyageur (€)</label>
                         <input
                           type="number"
                           min="0"
                           step="100"
                           value={newItinerary.budget}
                           onChange={(e) => setNewItinerary({ ...newItinerary, budget: parseInt(e.target.value) || 0 })}
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                           placeholder="0"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Coût pour l'agence (€)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Coût pour l'agence (€)</label>
                         <input
                           type="number"
                           min="0"
                           step="50"
                           value={newItinerary.cout_agence}
                           onChange={(e) => setNewItinerary({ ...newItinerary, cout_agence: parseInt(e.target.value) || 0 })}
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                           placeholder="0"
                         />
                       </div>
@@ -511,11 +505,11 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <div className="bg-slate-50 px-6 py-4 flex flex-row-reverse gap-3">
                   <button
                     onClick={createItinerary}
                     disabled={!newItinerary.titre || !newItinerary.destination || (newItinerary.dateType === 'dates' && (!newItinerary.date_debut || !newItinerary.date_fin))}
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors font-medium"
                   >
                     Créer le projet
                   </button>
@@ -524,7 +518,7 @@ export default function HomePage() {
                       setShowCreateModal(false);
                       resetForm();
                     }}
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
                   >
                     Annuler
                   </button>
