@@ -1,3 +1,9 @@
+"use client"
+
+import React, { useState, useEffect } from 'react';
+import { Map, Plus, Calendar, Trash2, X, MapPin, Edit2 } from 'lucide-react';
+
+const TravelPlannerApp = () => {
 import React, { useState, useEffect } from 'react';
 import { Map, Plus, Calendar, Trash2, X, MapPin, Edit2 } from 'lucide-react';
 
