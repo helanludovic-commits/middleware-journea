@@ -437,7 +437,7 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
   elementType: keyof typeof elementTypes | null;
   initialData?: TravelElement;
   itineraryId: string; // ⬅️ AJOUTEZ CETTE LIGNE
-})
+}) {
   const [formData, setFormData] = useState(initialData?.details || {});
   const [files, setFiles] = useState<FileAttachment[]>(initialData?.files || []);
 
@@ -488,7 +488,7 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
       alert(`Erreur lors de l'upload de ${file.name}`);
     }
   }
-};
+}
 
   const removeFile = (fileId: string) => {
     setFiles(prev => prev.filter(f => f.id !== fileId));
