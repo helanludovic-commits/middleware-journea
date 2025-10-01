@@ -436,7 +436,8 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
   onSave: (data: any) => void;
   elementType: keyof typeof elementTypes | null;
   initialData?: TravelElement;
-  itineraryId: string; // ⬅️ AJOUTEZ CETTE LIGNE
+  itineraryId: string;
+  itinerary: ItineraryData | null;
 }) {
   const [formData, setFormData] = useState(initialData?.details || {});
   const [files, setFiles] = useState<FileAttachment[]>(initialData?.files || []);
@@ -1093,7 +1094,8 @@ export default function GeneratorPage() {
       <ElementFormModal
         isOpen={showFormModal}
         onClose={() => setShowFormModal(false)}
-        itineraryId={itineraryId} // ⬅️ AJOUTEZ CETTE LIGNE
+        itineraryId={itineraryId}
+        itinerary={itinerary}
         onSave={(elementData) => {
           if (!currentDayId) return;
 
