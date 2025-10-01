@@ -505,7 +505,6 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
       }
     }
   }
-}
 
   const removeFile = (fileId: string) => {
     setFiles(prev => prev.filter(f => f.id !== fileId));
