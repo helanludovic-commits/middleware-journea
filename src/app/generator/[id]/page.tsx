@@ -477,12 +477,12 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
           .from('documents')
           .insert({
             itineraire_id: itineraryId,
-            client_id: null,
+            client_id: itinerary?.client?.id || null,
             nom_fichier: file.name,
             url_fichier: publicUrl,
             type_fichier: file.type,
             date_ajout: new Date().toISOString(),
-            agence_id: null
+            agence_id: itinerary?.agence_id || null  // ✅ NOUVEAU
           })
           .select()
           .single();
