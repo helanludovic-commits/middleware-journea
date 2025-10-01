@@ -452,40 +452,57 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
   }, [initialData]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const selectedFiles = Array.from(e.target.files || []);
+    const selectedFiles = Array.from(e.target.files || []);
   
-  for (const file of selectedFiles) {
-    try {
-      // Upload vers Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${itineraryId}/${fileName}`; // itineraryId doit être accessible dans votre composant
+    for (const file of selectedFiles) {
+      try {
+        // 1. Upload vers Supabase Storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${itineraryId}/${fileName}`;
 
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
 
-      if (error) throw error;
+        if (uploadError) throw uploadError;
 
-      // Récupérer l'URL publique
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
+        // 2. Récupérer l'URL publique
+        const { data: { publicUrl } } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
 
-      // Créer l'objet fichier avec l'URL au lieu des données base64
-      const newFile: FileAttachment = {
-        id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name,
-        type: file.type,
-        url: publicUrl, // ⬅️ URL au lieu de data
-        path: filePath, // ⬅️ Pour pouvoir supprimer le fichier plus tard
-        uploadedAt: new Date().toISOString()
-      };
+        // 3. Enregistrer dans la table documents
+        const { error: dbError } = await supabase
+          .from('documents')
+          .insert({
+            itineraire_id: itineraryId,
+            nom_fichier: file.name,
+            url_fichier: publicUrl,
+            type_fichier: file.type,
+            date_ajout: new Date().toISOString()
+          });
+
+        if (dbError) {
+          console.error('Erreur DB:', dbError);
+          // On continue quand même car le fichier est uploadé
+        }
+
+        // 4. Créer l'objet fichier pour l'affichage local
+        const newFile: FileAttachment = {
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          type: file.type,
+          url: publicUrl,
+          path: filePath,
+          uploadedAt: new Date().toISOString()
+        };
       
-      setFiles(prev => [...prev, newFile]);
-    } catch (error) {
-      console.error('Erreur upload:', error);
-      alert(`Erreur lors de l'upload de ${file.name}`);
+        setFiles(prev => [...prev, newFile]);
+      } catch (error) {
+        console.error('Erreur upload:', error);
+        alert(`Erreur lors de l'upload de ${file.name}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      }
     }
   }
 }
