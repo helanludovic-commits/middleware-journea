@@ -473,19 +473,25 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
           .getPublicUrl(filePath);
 
         // 3. Enregistrer dans la table documents
-        const { error: dbError } = await supabase
+        const { data: insertedDoc, error: dbError } = await supabase
           .from('documents')
           .insert({
             itineraire_id: itineraryId,
+            client_id: null,
             nom_fichier: file.name,
             url_fichier: publicUrl,
             type_fichier: file.type,
-            date_ajout: new Date().toISOString()
-          });
+            date_ajout: new Date().toISOString(),
+            agence_id: null
+          })
+          .select()
+          .single();
 
         if (dbError) {
-          console.error('Erreur DB:', dbError);
-          // On continue quand même car le fichier est uploadé
+          console.error('❌ Erreur insertion DB:', dbError);
+          alert(`Erreur base de données: ${dbError.message}`);
+        } else {
+          console.log('✅ Document inséré:', insertedDoc);
         }
 
         // 4. Créer l'objet fichier pour l'affichage local
