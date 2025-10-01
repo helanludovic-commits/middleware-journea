@@ -427,7 +427,7 @@ function TypeSelectionModal({ isOpen, onClose, onSelect }: {
       </div>
     </div>
   );
-} element
+}
 
 // Modal de formulaire
 function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, itineraryId, itinerary }: {
