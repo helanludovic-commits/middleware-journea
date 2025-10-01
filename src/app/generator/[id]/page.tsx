@@ -36,6 +36,7 @@ interface ItineraryData {
   titre: string;
   days: Day[];
   client?: any;
+  agence_id?: string;
 }
 
 interface FieldConfig {
