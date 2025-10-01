@@ -459,7 +459,7 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
       // Upload vers Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      cconst filePath = `${itineraryId}/${fileName}`; // itineraryId doit être accessible dans votre composant
+      const filePath = `${itineraryId}/${fileName}`; // itineraryId doit être accessible dans votre composant
 
       const { data, error } = await supabase.storage
         .from('documents')
@@ -588,7 +588,15 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, i
                   <div key={file.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
                     <div className="flex items-center gap-2">
                       <Paperclip className="w-3 h-3 text-gray-400" />
-                      <span>{file.name}</span>
+                      <a 
+                        href={file.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        download={file.name}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {file.name}
+                      </a>
                     </div>
                     <button
                       type="button"
