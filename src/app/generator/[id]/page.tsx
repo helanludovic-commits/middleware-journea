@@ -12,7 +12,8 @@ interface FileAttachment {
   id: string;
   name: string;
   type: string;
-  data: string;
+  url: string;
+  path: string;
   uploadedAt: string;
 }
 
@@ -429,13 +430,14 @@ function TypeSelectionModal({ isOpen, onClose, onSelect }: {
 }
 
 // Modal de formulaire
-function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }: {
+function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData, itineraryId }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: any) => void;
   elementType: keyof typeof elementTypes | null;
   initialData?: TravelElement;
-}) {
+  itineraryId: string; // ⬅️ AJOUTEZ CETTE LIGNE
+})
   const [formData, setFormData] = useState(initialData?.details || {});
   const [files, setFiles] = useState<FileAttachment[]>(initialData?.files || []);
 
@@ -449,24 +451,44 @@ function ElementFormModal({ isOpen, onClose, onSave, elementType, initialData }:
     }
   }, [initialData]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    
-    selectedFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const newFile: FileAttachment = {
-          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: file.name,
-          type: file.type,
-          data: reader.result as string,
-          uploadedAt: new Date().toISOString()
-        };
-        setFiles(prev => [...prev, newFile]);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const selectedFiles = Array.from(e.target.files || []);
+  
+  for (const file of selectedFiles) {
+    try {
+      // Upload vers Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      cconst filePath = `${itineraryId}/${fileName}`; // itineraryId doit être accessible dans votre composant
+
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      // Récupérer l'URL publique
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Créer l'objet fichier avec l'URL au lieu des données base64
+      const newFile: FileAttachment = {
+        id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: file.name,
+        type: file.type,
+        url: publicUrl, // ⬅️ URL au lieu de data
+        path: filePath, // ⬅️ Pour pouvoir supprimer le fichier plus tard
+        uploadedAt: new Date().toISOString()
       };
-      reader.readAsDataURL(file);
-    });
-  };
+      
+      setFiles(prev => [...prev, newFile]);
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      alert(`Erreur lors de l'upload de ${file.name}`);
+    }
+  }
+};
 
   const removeFile = (fileId: string) => {
     setFiles(prev => prev.filter(f => f.id !== fileId));
@@ -614,7 +636,7 @@ export default function GeneratorPage() {
     { id: 'day-2', name: 'Jour 2', elements: [] }
   ]);
   const [loading, setLoading] = useState(true);
-  
+
   // États des modales
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -1041,6 +1063,7 @@ export default function GeneratorPage() {
       <ElementFormModal
         isOpen={showFormModal}
         onClose={() => setShowFormModal(false)}
+        itineraryId={itineraryId} // ⬅️ AJOUTEZ CETTE LIGNE
         onSave={(elementData) => {
           if (!currentDayId) return;
 
@@ -1080,3 +1103,4 @@ export default function GeneratorPage() {
     </div>
   );
 }
+
